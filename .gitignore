@@ -1,0 +1,19 @@
+# Dependencies
+app/node_modules/
+
+# Build output
+app/dist/
+
+# Android build artifacts
+app/android/.gradle/
+app/android/app/build/
+app/android/build/
+app/android/local.properties
+
+# Signing keys — NEVER commit these
+*.keystore
+*.jks
+
+# OS
+.DS_Store
+Thumbs.db
