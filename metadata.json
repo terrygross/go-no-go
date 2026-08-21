@@ -1,0 +1,10 @@
+{
+  "name": "Go / No-Go",
+  "description": "Marine weather and sea-condition decision support tool for recreational powerboaters with personalized thresholds and 10-day planning.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

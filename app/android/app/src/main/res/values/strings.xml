@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">GO NO-GO</string>
-    <string name="title_activity_main">GO NO-GO</string>
-    <string name="package_name">com.gonogo.marine</string>
-    <string name="custom_url_scheme">com.gonogo.marine</string>
-</resources>
