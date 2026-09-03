@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Share } from "@capacitor/share";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -130,13 +131,13 @@ async function fetchLiveData(lat, lon) {
 // ── Verdict engine ────────────────────────────────────────────────────────────
 function baseLimits(hull, lengthM) {
   const table = {
-    "RIB":           { w:[12,17], h:[0.5,0.9] },
-    "Bowrider":      { w:[10,14], h:[0.4,0.7] },
-    "Cabin cruiser": { w:[14,19], h:[0.7,1.1] },
-    "PWC":           { w:[11,15], h:[0.4,0.8] },
-    "Power Cat":     { w:[15,21], h:[0.8,1.3] },
-    "Sailboat":      { w:[20,28], h:[1.2,2.0] },
-    "Sailing Cat":   { w:[18,25], h:[1.0,1.6] },
+    "RIB":           { w:[14,20], h:[0.6,1.1] },
+    "Bowrider":      { w:[14,20], h:[0.65,1.1] },
+    "Cabin cruiser": { w:[17,23], h:[0.9,1.5] },
+    "PWC":           { w:[13,18], h:[0.5,0.9] },
+    "Power Cat":     { w:[18,25], h:[1.0,1.6] },
+    "Sailboat":      { w:[22,30], h:[1.3,2.2] },
+    "Sailing Cat":   { w:[20,28], h:[1.1,1.9] },
   };
   const t = table[hull];
   const scale = Math.min(1.35, Math.max(0.75, lengthM / 6));
@@ -153,7 +154,7 @@ function verdictForData({ wind, gust, wave, period }, boat, trip) {
   if (boat.skipper === "Experienced") mult *= 1.1;
   w = w.map(v => v * mult);
   h = h.map(v => v * mult);
-  const gustFactor = gust > wind * 1.5 ? 0.9 : 1;
+  const gustFactor = gust > wind * 2.0 ? 0.9 : 1;
   const chopFactor = period <= 4 ? 0.85 : 1;
   const wLim = w.map(v => v * gustFactor);
   const hLim = h.map(v => v * chopFactor);
@@ -222,6 +223,12 @@ function formatVis(km, system = "imperial") {
   return { val: (km * 0.539957).toFixed(1), unit: "nm" };
 }
 
+function formatTemp(celsius, system = "imperial") {
+  if (celsius == null || isNaN(celsius)) return { val: "--", unit: system === "metric" ? "°C" : "°F" };
+  if (system === "metric") return { val: Math.round(celsius), unit: "°C" };
+  return { val: Math.round(celsius * 9 / 5 + 32), unit: "°F" };
+}
+
 function UnitToggle({ unitSystem, onChange, compact = false }) {
   return (
     <div
@@ -252,7 +259,7 @@ function UnitToggle({ unitSystem, onChange, compact = false }) {
           transition: "all 0.15s ease",
           lineHeight: 1.2,
         }}>
-        Metric (m, km/h)
+        {compact ? "m · km/h" : "Metric (m, km/h)"}
       </button>
       <button
         type="button"
@@ -271,7 +278,7 @@ function UnitToggle({ unitSystem, onChange, compact = false }) {
           transition: "all 0.15s ease",
           lineHeight: 1.2,
         }}>
-        Imperial (ft, kn)
+        {compact ? "ft · kn" : "Imperial (ft, kn)"}
       </button>
     </div>
   );
@@ -776,6 +783,8 @@ function setStoredJson(key, value) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GoNoGo() {
   const [screen, setScreen]   = useState("today");
+
+  const insets = {top: 28, bottom: 48};
   const [unitSystem, setUnitSystem] = useState(() => getStoredJson(STORAGE_KEYS.UNITS, "imperial"));
   useEffect(() => { setStoredJson(STORAGE_KEYS.UNITS, unitSystem); }, [unitSystem]);
 
@@ -831,6 +840,7 @@ export default function GoNoGo() {
   const [dragActive, setDragActive] = useState(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [planDayPopup, setPlanDayPopup] = useState(null);
 
   const contentRef = useRef(null);
   useEffect(()=>{ if(contentRef.current) contentRef.current.scrollTop=0; },[screen]);
@@ -957,6 +967,24 @@ export default function GoNoGo() {
     });
   },[liveData,boat,trip]);
 
+  // Hourly breakdown for tapped plan day
+  const popupHourly = useMemo(()=>{
+    const day = planDayPopup != null ? days[planDayPopup] : null;
+    if (!day?.date || !liveData?.raw) return null;
+    const { raw } = liveData;
+    return HOURS.map(h => {
+      const ts = `${day.date}T${String(h).padStart(2,"0")}:00`;
+      const wi = raw.wMap?.[ts];
+      const mi = raw.mMap?.[ts];
+      const wind   = wi != null ? Math.round(raw.wind[wi]   ?? 0) : 0;
+      const gust   = wi != null ? Math.round(raw.gust[wi]   ?? 0) : 0;
+      const wave   = mi != null ? parseFloat((raw.wave[mi]  ?? 0).toFixed(1)) : 0;
+      const period = mi != null ? Math.max(2, Math.round(raw.period[mi] ?? 6)) : 6;
+      const band   = verdictForData({ wind, gust, wave, period }, boat, trip);
+      return { h, wind, gust, wave, period, band };
+    });
+  },[planDayPopup, days, liveData, boat, trip]);
+
   const nowIdx = HOURS.indexOf(nowHour);
   const safenowIdx = nowIdx >= 0 ? nowIdx : 0;
   const now = bands[safenowIdx];
@@ -995,6 +1023,12 @@ export default function GoNoGo() {
       deadlineReason = `Sunset at ${sunset}`;
     }
   }
+
+  // When GPS is far from marina (>30 nm / ~55 km), offer to use GPS for weather
+  const gpsFarFromMarina = (() => {
+    if (!gps || gps.error || !boat.marina.lat || !boat.marina.lon) return false;
+    return haversineNm(gps.lat, gps.lon, boat.marina.lat, boat.marina.lon) > 30;
+  })();
 
   // Live GPS or planning range distance
   const liveGps = (gps && !gps.error) ? gps : null;
@@ -1108,7 +1142,8 @@ export default function GoNoGo() {
 
   // Day Kit
   const rainLabel = rainProb >= 50 ? `Rain likely (${rainProb}%)` : rainProb >= 25 ? `${rainProb}% chance of rain` : "No rain expected";
-  const sstLabel  = sst >= 24 ? `Sea ${sst}° — swim-warm` : `Sea ${sst}°`;
+  const sstTemp = formatTemp(sst, unitSystem);
+  const sstLabel  = sst >= 24 ? `Sea ${sstTemp.val}${sstTemp.unit} — swim-warm` : `Sea ${sstTemp.val}${sstTemp.unit}`;
 
   // 10-day best day
   const tighten = (trip.crew==="Kids aboard"?1:0)+(boat.skipper==="Novice"?1:0)+(boat.length<5?1:0);
@@ -1265,26 +1300,81 @@ export default function GoNoGo() {
     setDragOverIdx(null);
   }
 
-  async function handleSocialShare() {
-    const shareUrl = window.location.href;
-    const shareTitle = "GO / NO-GO — Marine Sea-State & Boating Forecast";
-    const shareText = `Check today's boating and marine conditions for ${boat.marina.name} with GO / NO-GO!`;
+  // ── Backup & Restore ────────────────────────────────────────────────────────
+  const restoreInputRef = useRef(null);
+  const [restoreState, setRestoreState] = useState(null); // null | "ok" | "err"
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl,
-        });
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          // Fallback to clipboard if share was rejected/failed
-          copyShareLink(shareUrl);
-        }
+  function exportBackup() {
+    const backup = {
+      version: "1.0",
+      appId: "gonogo",
+      exportedAt: new Date().toISOString(),
+      data: {
+        boat:        getStoredJson(STORAGE_KEYS.BOAT, null),
+        trip:        getStoredJson(STORAGE_KEYS.TRIP, null),
+        marinaOrder: getStoredJson(STORAGE_KEYS.MARINA_ORDER, null),
+        subscription:getStoredJson(STORAGE_KEYS.SUBSCRIPTION, null),
+        units:       getStoredJson(STORAGE_KEYS.UNITS, null),
+      },
+    };
+    const json     = JSON.stringify(backup, null, 2);
+    const blob     = new Blob([json], { type: "application/json" });
+    const filename = `gonogo-backup-${new Date().toISOString().slice(0,10)}.json`;
+
+    // Android / modern browsers: share as file → opens share sheet (Drive, Files, etc.)
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ title: "GO / NO-GO Backup", files: [file] })
+          .catch(err => { if (err.name !== "AbortError") fallbackDownload(blob, filename); });
+        return;
       }
-    } else {
-      copyShareLink(shareUrl);
+    }
+    fallbackDownload(blob, filename);
+  }
+
+  function fallbackDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement("a");
+    a.href    = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  }
+
+  function handleRestoreFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const backup = JSON.parse(ev.target.result);
+        if (backup.appId !== "gonogo" || !backup.data) throw new Error("bad format");
+        const { data } = backup;
+        if (data.boat)         { setStoredJson(STORAGE_KEYS.BOAT, data.boat);                setBoat(data.boat); }
+        if (data.trip)         { setStoredJson(STORAGE_KEYS.TRIP, data.trip);                setTrip(data.trip); }
+        if (data.marinaOrder)  { setStoredJson(STORAGE_KEYS.MARINA_ORDER, data.marinaOrder); setMarinaOrder(data.marinaOrder); }
+        if (data.subscription) { setStoredJson(STORAGE_KEYS.SUBSCRIPTION, data.subscription); setSubPlan(data.subscription); }
+        if (data.units)        { setStoredJson(STORAGE_KEYS.UNITS, data.units);              setUnitSystem(data.units); }
+        setRestoreState("ok");
+      } catch {
+        setRestoreState("err");
+      }
+      setTimeout(() => setRestoreState(null), 3500);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function handleSocialShare() {
+    const shareUrl = "https://go-no-go-692246708745.europe-west1.run.app";
+    const shareTitle = "GO / NO-GO — Marine Weather";
+    const shareText = `Check today's boating conditions for ${boat.marina.name} with GO / NO-GO!\n${shareUrl}`;
+    try {
+      await Share.share({ title: shareTitle, text: shareText, url: shareUrl, dialogTitle: "Share GO / NO-GO" });
+    } catch (err) {
+      if (err?.message !== "Share canceled") copyShareLink(shareUrl);
     }
   }
 
@@ -1315,10 +1405,15 @@ export default function GoNoGo() {
       : "demo data";
 
   return (
-    <div style={{minHeight:"100vh",background:"#04101C",display:"flex",
-      justifyContent:"center",alignItems:"flex-start",
-      padding:"24px 12px",fontFamily:"'IBM Plex Sans',sans-serif"}}>
+    <div className="app-outer">
       <style>{FONTS+`
+        html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#04101C}
+        .app-outer{min-height:100dvh;background:#04101C;display:flex;justify-content:center;align-items:flex-start;padding:24px 12px;font-family:'IBM Plex Sans',sans-serif;box-sizing:border-box}
+        .phone-frame{width:390px;max-width:100%;border-radius:28px;overflow:hidden;border:1px solid rgba(242,247,247,0.14);box-shadow:0 24px 60px rgba(0,0,0,.5);height:min(780px,calc(100dvh - 48px));display:flex;flex-direction:column;position:relative}
+        @media(max-width:430px){
+          .app-outer{padding:0;align-items:stretch}
+          .phone-frame{width:100%;border-radius:0;height:100dvh;max-height:100dvh;box-shadow:none;border:none}
+        }
         @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-8%)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
         button:focus-visible{outline:2px solid ${C.foam};outline-offset:2px}
@@ -1329,11 +1424,9 @@ export default function GoNoGo() {
       `}</style>
 
       {/* phone frame */}
-      <div style={{width:390,maxWidth:"100%",background:C.ink,borderRadius:28,
-        overflow:"hidden",border:`1px solid ${C.hair}`,
-        boxShadow:"0 24px 60px rgba(0,0,0,0.5)",color:C.foam,
-        height:"min(780px, calc(100dvh - 48px))",
-        display:"flex",flexDirection:"column",position:"relative"}}>
+      <div className="phone-frame" style={{background:C.ink,color:C.foam}}>
+        {/* Top spacer — pushes content below Android status bar */}
+        <div style={{height:insets.top,flexShrink:0,background:C.ink}} />
 
         {/* ── HEAD BACK SAFETY PROMPT OVERLAY (Triggers when offshore past return window) ── */}
         {shouldTriggerAlarm && (
@@ -1464,6 +1557,30 @@ export default function GoNoGo() {
                 hullType={boat.hull}
               />
 
+              {/* Banner: GPS detected far from home marina — offer to use local weather */}
+              {gpsFarFromMarina && (
+                <div style={{margin:"0 20px 10px",padding:"10px 13px",borderRadius:10,
+                  background:`${C.amber}15`,border:`1px solid ${C.amber}55`,
+                  display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                  <div style={{fontSize:11,color:C.foam,lineHeight:1.4,minWidth:0}}>
+                    <span style={{color:C.amber,fontWeight:700}}>📍 You're not near {boat.marina.name}.</span>{" "}
+                    Get local weather for your current position?
+                  </div>
+                  <button
+                    type="button"
+                    onClick={()=>{
+                      if(gps&&!gps.error){
+                        setBoat(b=>({...b,marina:{name:"My Location",lat:parseFloat(gps.lat.toFixed(5)),lon:parseFloat(gps.lon.toFixed(5))}}));
+                      }
+                    }}
+                    style={{flexShrink:0,background:C.amber,border:"none",borderRadius:8,
+                      padding:"6px 11px",color:C.ink,fontFamily:"'IBM Plex Sans',sans-serif",
+                      fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    Use my location
+                  </button>
+                </div>
+              )}
+
               <div style={{background:`linear-gradient(180deg,${B.deep} 0%,${C.ink} 115%)`,
                 padding:"26px 20px 0",transition:"background .4s"}}>
                 <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontStretch:"125%",
@@ -1553,7 +1670,7 @@ export default function GoNoGo() {
                 <div style={{fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:C.slate,marginBottom:8}}>Day kit</div>
                 <div style={{display:"flex",gap:8}}>
                   {[
-                    {icon:"🌡",big:`${airTemp}°`, small:sstLabel},
+                    {icon:"🌡",big:`${formatTemp(airTemp,unitSystem).val}${formatTemp(airTemp,unitSystem).unit}`,small:sstLabel},
                     {icon:"🌧",big:rainProb>=50?"Rain":"Dry", small:rainLabel},
                     {icon:"☀",big:`UV ${uv}`, small:`${uv>=8?"Sunscreen essential — reapply after swims":uv>=5?"Use sunscreen":"Low UV today"}`, hot:uv>=8},
                   ].map(t=>(
@@ -1598,8 +1715,10 @@ export default function GoNoGo() {
                 const wObj = formatWind(day.wMax, unitSystem);
                 const hObj = formatWave(day.hMax, unitSystem);
                 return (
-                  <div key={day.d||i} style={{display:"flex",alignItems:"center",gap:12,
-                    padding:"9px 10px",borderRadius:10,marginBottom:4,
+                  <div key={day.d||i}
+                    onClick={()=>setPlanDayPopup(i)}
+                    style={{display:"flex",alignItems:"center",gap:12,
+                    padding:"9px 10px",borderRadius:10,marginBottom:4,cursor:"pointer",
                     background:isBest?`${C.green}14`:"transparent",
                     border:isBest?`1px solid ${C.green}55`:`1px solid transparent`}}>
                     <div style={{width:52,fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:C.foam}}>{day.d}</div>
@@ -1856,7 +1975,7 @@ export default function GoNoGo() {
               </Field>
 
               <Field label={unitSystem === "metric" ? `Length — ${boat.length.toFixed(1)} m` : `Length — ${(boat.length * 3.28084).toFixed(1)} ft (${boat.length.toFixed(1)} m)`}>
-                <input type="range" min="3.5" max="12" step="0.5" value={boat.length}
+                <input type="range" min="3.5" max="12" step="0.1" value={boat.length}
                   onChange={e=>setBoat({...boat,length:parseFloat(e.target.value)})}
                   style={{width:"100%",accentColor:C.green}}/>
                 <div style={{display:"flex",justifyContent:"space-between",width:"100%",
@@ -2049,8 +2168,65 @@ export default function GoNoGo() {
                 <span style={{color:C.foam}}>this boat and this skipper</span> — a 4 m bowrider and a 9 m cruiser get different answers to the same sea.
               </div>
 
+              {/* ── Backup & Restore ─────────────────────────────── */}
+              <div style={{marginTop:16,marginBottom:8,borderRadius:14,border:`1px solid ${C.hair}`,padding:14,background:C.ink2}}>
+                <div style={{fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:C.slate,fontWeight:600,marginBottom:6}}>
+                  Backup &amp; Restore
+                </div>
+                <div style={{fontSize:12,color:C.slate,marginBottom:14,lineHeight:1.5}}>
+                  Save your boat profile as a file — restore it any time, on any phone. No account needed.
+                </div>
+
+                <div style={{display:"flex",gap:8}}>
+                  <button
+                    type="button"
+                    onClick={exportBackup}
+                    style={{flex:1,background:`${C.green}1A`,border:`1px solid ${C.green}55`,borderRadius:10,
+                      padding:"11px 10px",color:C.green,fontFamily:"'IBM Plex Sans',sans-serif",
+                      fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",
+                      justifyContent:"center",gap:6}}>
+                    <span>⬆</span> Back up data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={()=>restoreInputRef.current?.click()}
+                    style={{flex:1,background:`${C.amber}15`,border:`1px solid ${C.amber}44`,borderRadius:10,
+                      padding:"11px 10px",color:C.amber,fontFamily:"'IBM Plex Sans',sans-serif",
+                      fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",
+                      justifyContent:"center",gap:6}}>
+                    <span>⬇</span> Restore backup
+                  </button>
+                </div>
+
+                {/* Hidden file input for restore */}
+                <input
+                  ref={restoreInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  style={{display:"none"}}
+                  onChange={handleRestoreFile}
+                />
+
+                {restoreState === "ok" && (
+                  <div style={{marginTop:10,padding:"8px 12px",borderRadius:8,background:`${C.green}1A`,
+                    border:`1px solid ${C.green}55`,fontSize:12,color:C.green,fontWeight:600,textAlign:"center"}}>
+                    ✓ Profile restored successfully
+                  </div>
+                )}
+                {restoreState === "err" && (
+                  <div style={{marginTop:10,padding:"8px 12px",borderRadius:8,background:`${C.red}1A`,
+                    border:`1px solid ${C.red}55`,fontSize:12,color:C.red,fontWeight:600,textAlign:"center"}}>
+                    ✗ Could not read backup file — check it's a GO / NO-GO backup
+                  </div>
+                )}
+
+                <div style={{marginTop:10,fontSize:10,color:C.slate,lineHeight:1.4,opacity:0.75}}>
+                  Your data never leaves your device unless you choose to share it. Save to Google Drive, email it to yourself, or store in Files.
+                </div>
+              </div>
+
               <button onClick={()=>setScreen("legal")}
-                style={{marginTop:24,width:"100%",background:"transparent",
+                style={{marginTop:16,width:"100%",background:"transparent",
                   border:`1px solid ${C.hair}`,borderRadius:10,padding:"12px 0",
                   fontFamily:"'IBM Plex Sans',sans-serif",fontSize:12,color:C.slate,cursor:"pointer"}}>
                 Legal, Terms &amp; Privacy Policy
@@ -2114,6 +2290,8 @@ export default function GoNoGo() {
             <span style={{fontWeight:800,letterSpacing:"0.01em"}}>Share</span>
           </button>
         </div>
+        {/* Bottom spacer — pushes nav above Android navigation bar */}
+        <div style={{height:insets.bottom,flexShrink:0,background:"#061320"}} />
 
         {/* Share toast confirmation */}
         {shareToast && (
@@ -2125,6 +2303,62 @@ export default function GoNoGo() {
             zIndex:99,pointerEvents:"none",animation:"pulse 0.3s ease"
           }}>
             <span style={{color:C.green}}>✓</span> Link copied to clipboard!
+          </div>
+        )}
+
+        {/* Plan day hourly popup */}
+        {planDayPopup != null && (
+          <div onClick={()=>setPlanDayPopup(null)}
+            style={{position:"absolute",inset:0,background:"rgba(6,19,32,0.82)",
+              display:"flex",alignItems:"flex-end",zIndex:200,backdropFilter:"blur(4px)"}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{width:"100%",maxHeight:"75%",background:C.ink,borderRadius:"20px 20px 0 0",
+                display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              {/* header */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"16px 20px 12px",borderBottom:`1px solid ${C.hair}`,flexShrink:0}}>
+                <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontStretch:"125%",fontSize:18,color:C.foam}}>
+                  {adjDays[planDayPopup]?.d} — Hourly
+                </div>
+                <button onClick={()=>setPlanDayPopup(null)}
+                  style={{background:"transparent",border:"none",color:C.slate,fontSize:22,cursor:"pointer",lineHeight:1,padding:4}}>×</button>
+              </div>
+              {/* colour bar */}
+              {popupHourly && (
+                <div style={{display:"flex",height:18,margin:"12px 20px 4px",borderRadius:6,overflow:"hidden",flexShrink:0}}>
+                  {popupHourly.map(row=>(
+                    <div key={row.h} style={{flex:1,background:BAND[row.band].color,opacity:0.9}}/>
+                  ))}
+                </div>
+              )}
+              <div style={{display:"flex",justifyContent:"space-between",padding:"0 20px 8px",fontSize:10,color:C.slate,flexShrink:0}}>
+                <span>{fmtHour(HOURS[0])}</span><span>{fmtHour(HOURS[Math.floor(HOURS.length/2)])}</span><span>{fmtHour(HOURS[HOURS.length-1])}</span>
+              </div>
+              {/* hour list */}
+              <div style={{overflowY:"auto",padding:"0 20px 24px"}}>
+                {(popupHourly||[]).map(row=>{
+                  const wObj=formatWind(row.wind,unitSystem);
+                  const gObj=formatWind(row.gust,unitSystem);
+                  const hObj=formatWave(row.wave,unitSystem);
+                  const b=BAND[row.band];
+                  return (
+                    <div key={row.h} style={{display:"flex",alignItems:"center",gap:10,
+                      padding:"7px 0",borderBottom:`1px solid ${C.hair}`}}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:b.color,flexShrink:0}}/>
+                      <div style={{width:42,fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:C.foam,flexShrink:0}}>
+                        {fmtHour(row.h)}
+                      </div>
+                      <div style={{flex:1,fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:C.slate}}>
+                        {wObj.val}↑{gObj.val} {wObj.unit} · {hObj.val} {hObj.unit} · {row.period}s
+                      </div>
+                      <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:11,fontWeight:600,color:b.color,flexShrink:0}}>
+                        {b.word}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
