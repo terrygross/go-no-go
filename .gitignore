@@ -1,8 +1,13 @@
-# Dependencies
-app/node_modules/
+# Dependencies.
+#
+# These were scoped to app/ — but the Vite project is at the REPO ROOT, so a
+# plain `npm install` here left 68 packages untracked and one `git add -A`
+# from committing them. No leading slash, so these match at any depth and
+# cover both the root project and app/.
+node_modules/
 
 # Build output
-app/dist/
+dist/
 
 # Android build artifacts
 app/android/.gradle/
