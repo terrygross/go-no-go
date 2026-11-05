@@ -1451,7 +1451,14 @@ export default function GoNoGo() {
         html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#04101C}
         .app-outer{min-height:100dvh;background:#04101C;display:flex;justify-content:center;align-items:flex-start;padding:24px 12px;font-family:'IBM Plex Sans',sans-serif;box-sizing:border-box}
         .phone-frame{width:390px;max-width:100%;border-radius:28px;overflow:hidden;border:1px solid rgba(242,247,247,0.14);box-shadow:0 24px 60px rgba(0,0,0,.5);height:min(780px,calc(100dvh - 48px));display:flex;flex-direction:column;position:relative}
-        @media(max-width:430px){
+        /* Full-bleed on a phone; the bordered card is only for a desktop browser.
+           This was 430px, which is the width of an iPhone 15 Pro Max — and one
+           point narrower than an iPhone 16 Pro Max (440pt). On that phone, and
+           on it alone, the app drew itself as a floating card with a border and
+           dead space below the nav. Android never showed it (a Pixel is 412dp).
+           520px clears every phone in portrait while staying well under an
+           iPad mini's 744pt, so tablets and desktop keep the card. */
+        @media(max-width:520px){
           .app-outer{padding:0;align-items:stretch}
           .phone-frame{width:100%;border-radius:0;height:100dvh;max-height:100dvh;box-shadow:none;border:none}
         }
