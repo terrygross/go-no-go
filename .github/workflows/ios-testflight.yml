@@ -78,6 +78,57 @@ jobs:
         working-directory: app
         run: npx cap sync ios
 
+      # Apple answers every bad credential with the same flat 401, so a wrong
+      # Key ID, a wrong Issuer ID and a stray newline are indistinguishable at
+      # the point of failure. This step separates them BEFORE the API call.
+      #
+      # The whitespace stripping is not paranoia: copying either value out of a
+      # browser or Notepad picks up a trailing newline, it goes straight into
+      # the signed JWT, and Apple rejects the token without ever saying why.
+      #
+      # Nothing here prints a secret. GitHub masks the values anyway; what is
+      # printed is shape — length and character class — which is what actually
+      # tells us which field was mispasted.
+      - name: Check the App Store Connect credentials
+        env:
+          RAW_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          RAW_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          KEY_ID="$(printf '%s' "$RAW_KEY_ID" | tr -d '[:space:]')"
+          ISSUER="$(printf '%s' "$RAW_ISSUER" | tr -d '[:space:]')"
+
+          echo "Key ID:    ${#RAW_KEY_ID} characters as stored, ${#KEY_ID} after trimming"
+          echo "Issuer ID: ${#RAW_ISSUER} characters as stored, ${#ISSUER} after trimming"
+
+          ok=1
+
+          # A Key ID is exactly 10 uppercase letters and digits.
+          if ! printf '%s' "$KEY_ID" | grep -Eq '^[A-Z0-9]{10}$'; then
+            echo "::error::APP_STORE_CONNECT_KEY_ID is not a 10-character Key ID. It is the short code in the KEY ID column on App Store Connect -> Users and Access -> Integrations, and it is also in the downloaded filename: AuthKey_XXXXXXXXXX.p8"
+            ok=0
+          fi
+
+          # An Issuer ID is a lowercase UUID: 8-4-4-4-12.
+          if ! printf '%s' "$ISSUER" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
+            echo "::error::APP_STORE_CONNECT_ISSUER_ID is not a UUID. It is the long dashed code shown ABOVE the key table on the Integrations page, next to the words 'Issuer ID' — not the Key ID, and not the Team ID."
+            ok=0
+          fi
+
+          # The two are easy to swap, and swapping them gives the same 401.
+          if [ "$KEY_ID" = "$ISSUER" ]; then
+            echo "::error::The Key ID and the Issuer ID are the same value. One of the two secrets holds the wrong field."
+            ok=0
+          fi
+
+          [ "$ok" = "1" ] || exit 1
+
+          echo "Both credentials are the right shape."
+
+          # Used by every later step, trimmed, so a stray newline cannot reach
+          # the JWT, the filename or the xcodebuild arguments.
+          echo "ASC_KEY_ID=$KEY_ID"  >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$ISSUER" >> "$GITHUB_ENV"
+
       # xcodebuild reads the key from a file path, so it has to land on disk,
       # outside the workspace so no build step or artifact can pick it up.
       # The key goes through an env var rather than being interpolated into the
@@ -91,7 +142,6 @@ jobs:
       - name: Place the App Store Connect API key
         env:
           ASC_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
           mkdir -p ~/private_keys
           P8=~/private_keys/AuthKey_${ASC_KEY_ID}.p8
@@ -151,16 +201,13 @@ jobs:
       # entirely beside the point for an App Store build.
       - name: Ensure an App Store provisioning profile
         id: profile
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           pip3 install --quiet --break-system-packages pyjwt cryptography
           python3 - <<'PROF'
           import os, time, json, base64, pathlib, urllib.request, urllib.error, jwt
 
           key_id = os.environ["ASC_KEY_ID"]
-          issuer = os.environ["ASC_ISSUER"]
+          issuer = os.environ["ASC_ISSUER_ID"]
           bundle = os.environ["BUNDLE_ID"]
           pname  = os.environ["PROFILE_NAME"]
           pem    = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % key_id)).read()
@@ -184,7 +231,27 @@ jobs:
                   return e.code, e.read().decode()[:600]
 
           st, bids = call("bundleIds?filter[identifier]=" + bundle)
-          assert st == 200 and bids["data"], ("bundle id lookup failed", st, bids)
+
+          # The first call to Apple, so it is where a bad credential surfaces.
+          # Apple returns the same 401 for a wrong Key ID, a wrong Issuer ID, a
+          # revoked key and a key belonging to another account, so spell out
+          # the possibilities rather than printing its one-line complaint.
+          if st == 401:
+              print("::error::Apple rejected the API key (401). The key file itself is valid PKCS#8 and the Key ID and Issuer ID are both the right shape, so one of these is true: (a) APP_STORE_CONNECT_PRIVATE_KEY is a DIFFERENT key from the one APP_STORE_CONNECT_KEY_ID names; (b) the Issuer ID belongs to another App Store Connect account; (c) the key has been revoked on the Integrations page. Check that the Key ID matches the downloaded filename AuthKey_<KEY ID>.p8 of the key you actually pasted.")
+              print(bids)
+              raise SystemExit(1)
+          if st == 403:
+              print("::error::Apple accepted the key but refused the request (403). The key's role is too low — it needs App Manager. Revoke it and make a new one with that role.")
+              print(bids)
+              raise SystemExit(1)
+          if st != 200:
+              print("::error::Unexpected reply from App Store Connect: %s" % st)
+              print(bids)
+              raise SystemExit(1)
+          if not bids["data"]:
+              print("::error::No bundle ID '%s' exists in this App Store Connect account. Either the app record is in a different account, or the identifier differs." % bundle)
+              raise SystemExit(1)
+
           bid = bids["data"][0]["id"]
           print("bundle id resource:", bid)
 
@@ -239,9 +306,9 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID ${ASC_KEY_ID} \
+            -authenticationKeyIssuerID ${ASC_ISSUER_ID} \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
@@ -255,9 +322,9 @@ jobs:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath "$RUNNER_TEMP/export" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID ${ASC_KEY_ID} \
+            -authenticationKeyIssuerID ${ASC_ISSUER_ID}
           ls -lh "$RUNNER_TEMP/export"
 
       # Checked before the upload rather than after, because a rejected upload
@@ -290,8 +357,8 @@ jobs:
           xcrun altool --upload-app \
             --type ios \
             --file "$IPA" \
-            --apiKey ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            --apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+            --apiKey ${ASC_KEY_ID} \
+            --apiIssuer ${ASC_ISSUER_ID}
         env:
           API_PRIVATE_KEYS_DIR: ~/private_keys
 
