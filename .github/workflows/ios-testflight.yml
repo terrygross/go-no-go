@@ -194,6 +194,16 @@ jobs:
             exit 1
           fi
 
+          # Apple renamed this certificate type: new ones are "Apple
+          # Distribution", ones issued before 2021 are "iPhone Distribution".
+          # Either signs an App Store build, but CODE_SIGN_IDENTITY has to say
+          # which, so read it off the certificate instead of assuming.
+          if security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "Apple Distribution"; then
+            echo "SIGN_IDENTITY=Apple Distribution" >> "$GITHUB_ENV"
+          else
+            echo "SIGN_IDENTITY=iPhone Distribution" >> "$GITHUB_ENV"
+          fi
+
       # Creates the App Store provisioning profile outright rather than letting
       # Xcode infer one. Left to itself Xcode asks for a DEVELOPMENT profile —
       # Capacitor's template sets CODE_SIGN_IDENTITY to "iPhone Developer" —
@@ -291,40 +301,71 @@ jobs:
           (dest / (uuid + ".mobileprovision")).write_bytes(
               base64.b64decode(prof["attributes"]["profileContent"]))
           print("installed profile uuid:", uuid)
+
+          # Handed to xcodebuild by UUID rather than by name. Names are not
+          # unique and Xcode picks silently between duplicates; a UUID names
+          # exactly the profile that was installed a line ago.
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("PROFILE_UUID=%s\n" % uuid)
           PROF
 
       # Capacitor 8 uses Swift Package Manager, so there is no .xcworkspace and
       # no Podfile — the project builds directly.
+      #
+      # MANUAL SIGNING, AND WHY -allowProvisioningUpdates IS GONE
+      #
+      # Capacitor's template leaves CODE_SIGN_STYLE on Automatic. Automatic
+      # signing decides for itself what kind of profile an archive needs, asks
+      # Apple for a DEVELOPMENT one, and fails with
+      #
+      #   Your team has no devices from which to generate a provisioning profile
+      #   No profiles for 'com.gonogo.marine' were found
+      #
+      # which is true and irrelevant: a store build needs no devices. Installing
+      # the right profile beforehand does not help, because automatic signing
+      # never looks at it. So the choice is taken away — manual style, the
+      # distribution identity, and the exact profile installed in the previous
+      # step. -allowProvisioningUpdates is dropped with it: it exists to let
+      # Xcode invent profiles, which is the behaviour being prevented.
       - name: Archive
         working-directory: app/ios/App
         run: |
           set -o pipefail
+          echo "signing with: $SIGN_IDENTITY / profile $PROFILE_UUID"
           xcodebuild archive \
             -project App.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID ${ASC_KEY_ID} \
-            -authenticationKeyIssuerID ${ASC_ISSUER_ID} \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
+      # The checked-in ExportOptions.plist names the certificate type and the
+      # profile as fixed strings. Both are now known for real — the type read
+      # off the certificate, the profile by the UUID that was installed — so
+      # the plist is copied and those two values overwritten. Exporting with a
+      # different identity or profile from the one the archive was signed with
+      # is a re-sign, and it is how an .ipa ends up rejected at upload.
       - name: Export the .ipa
         working-directory: app/ios/App
         run: |
           set -o pipefail
+          PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          cp ExportOptions.plist "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :signingCertificate $SIGN_IDENTITY" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :provisioningProfiles:$BUNDLE_ID $PROFILE_UUID" "$PLIST"
+          echo "--- export options actually used ---"
+          cat "$PLIST"
+
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID ${ASC_KEY_ID} \
-            -authenticationKeyIssuerID ${ASC_ISSUER_ID}
+            -exportOptionsPlist "$PLIST" \
+            -exportPath "$RUNNER_TEMP/export"
           ls -lh "$RUNNER_TEMP/export"
 
       # Checked before the upload rather than after, because a rejected upload
