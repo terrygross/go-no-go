@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Share } from "@capacitor/share";
 import { SITE } from "./session.js";
 import { useAccount } from "./AccountGate.jsx";
+import { Upgrade } from "./Upgrade.jsx";
 import { Btn, C, Field, HEAD, Msg, PasswordField, TextLink } from "./ui.jsx";
 
 const card = { background: C.ink2, border: `1px solid ${C.hair}`, borderRadius: 16, padding: "16px 16px", marginBottom: 14 };
@@ -72,10 +73,7 @@ export function AccountPanel() {
         {feat(true, "Unlimited launch sites / marinas")}
         {feat(true, "The home call: when to head back to the dock")}
         {feat(true, "Earn commission on referrals")}
-        <div style={{ fontSize: 13, lineHeight: 1.5, color: C.slate, marginTop: 10 }}>
-          Premium purchase is coming soon. Your account is ready for it, and we'll tell you when it opens.
-          {a.hasPremiumAccess && !u.isPremium ? " Until then you have full Premium features." : ""}
-        </div>
+        <Upgrade />
       </div>
 
       <div style={card}>

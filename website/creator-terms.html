@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Creator &amp; Referral Terms | GO / NO-GO</title>
+<meta name="description" content="How commission, payouts and bank details work for GO / NO-GO creators and Premium members who refer friends." />
+<link rel="canonical" href="https://gonogoboatapp.com/creator-terms" />
+<meta name="robots" content="index, follow" />
+<link rel="icon" type="image/png" href="/assets/logo.png" />
+<meta name="theme-color" content="#0a1622" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#081320;
+    --surface:#0f2436;
+    --border:rgba(255,255,255,.09);
+    --border-strong:rgba(255,255,255,.16);
+    --text:#eef4fa;
+    --muted:#93a7bb;
+    --go:#2ecc71;
+    --go-soft:#4fdc8b;
+    --amber:#f2a93b;
+    --gold:#e8b84b;
+    --teal:#3ecf8e;
+    --maxw:760px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 500px at 82% -8%, rgba(46,204,113,.12), transparent 60%),
+      radial-gradient(760px 520px at 4% 2%, rgba(62,207,142,.07), transparent 55%),
+      linear-gradient(180deg,#081320,#060f18 70%,#050c14);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--go-soft);text-decoration:none}
+  a:hover{text-decoration:underline}
+  img{max-width:100%;display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:40;backdrop-filter:blur(12px);
+    background:rgba(8,19,32,.72);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:'Space Grotesk';font-weight:700;letter-spacing:.01em}
+  .brand img{width:32px;height:32px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+  .brand span{font-size:16px}
+  .brand span b{color:var(--go)}
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:14.5px;font-weight:500}
+  .back:hover{color:var(--text);text-decoration:none}
+  .back svg{width:16px;height:16px}
+
+  /* page head */
+  .head{padding:56px 0 30px;border-bottom:1px solid var(--border)}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--teal);
+    background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.22);
+    padding:6px 13px;border-radius:100px;margin-bottom:20px}
+  h1{font-family:'Space Grotesk';font-weight:700;font-size:clamp(30px,5vw,42px);letter-spacing:-.02em;margin:0 0 10px}
+  .updated{color:var(--muted);font-size:14px;font-family:'Space Grotesk';font-weight:500}
+
+  /* body */
+  main{padding:14px 0 40px}
+  section{padding:26px 0;border-bottom:1px solid var(--border)}
+  section:last-of-type{border-bottom:0}
+  h2{font-family:'Space Grotesk';font-weight:600;font-size:20px;letter-spacing:-.01em;margin:0 0 12px;
+    display:flex;align-items:baseline;gap:12px}
+  h2 .n{font-size:13px;color:var(--go);font-family:'Space Grotesk';font-weight:700;
+    min-width:26px}
+  p{margin:0 0 14px;color:#d4dfe9;font-size:16px}
+  p:last-child{margin-bottom:0}
+  strong{color:var(--text);font-weight:600}
+  .sole{font-family:'Space Grotesk';font-weight:700;letter-spacing:.02em;color:var(--go-soft);font-size:15px}
+
+  .callout{background:linear-gradient(180deg,rgba(232,184,75,.09),rgba(232,184,75,.03));
+    border:1px solid rgba(232,184,75,.3);border-radius:16px;padding:20px 22px;margin:6px 0 0}
+  .callout h3{font-family:'Space Grotesk';font-size:13px;letter-spacing:.04em;text-transform:uppercase;
+    margin:0 0 12px;color:var(--gold)}
+  .callout p{font-size:15px;color:#e6edf3}
+  .callout .risk{margin-top:12px;color:var(--text);font-weight:600}
+
+  .pill-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+  .pill{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:100px;
+    background:rgba(62,207,142,.09);border:1px solid rgba(62,207,142,.22);color:var(--teal)}
+
+  .sub-block{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  .sub-block h3{font-family:'Space Grotesk';font-size:15px;font-weight:600;margin:0 0 8px;color:var(--text)}
+  .sub-block h3 .tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--teal);background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.2);
+    padding:2px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+  .sub-block p{font-size:14.5px;color:var(--muted)}
+
+  /* footer */
+  footer{border-top:1px solid var(--border);padding:32px 0 56px}
+  .foot-in{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px}
+  .foot-in .brand span{font-size:15px}
+  .foot-in .muted{color:var(--muted);font-size:13px}
+
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin:22px 0 0;font-size:14.5px}
+  .toc a{display:inline-block;margin:2px 12px 2px 0;color:var(--muted)}
+  .toc a:hover{color:var(--text)}
+  ul{margin:0 0 14px;padding-left:22px;color:#d4dfe9;font-size:16px}
+  li{margin:0 0 7px}
+  .example{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin:10px 0 14px;font-size:15px;color:#d4dfe9}
+  .example b{color:var(--text)}
+  @media(max-width:560px){h2{flex-direction:column;gap:2px}}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="GO / NO-GO logo" /><span>GO <b>/</b> NO-GO</span></a>
+    <a class="back" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>Back to site</a>
+  </div>
+</header>
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">⚓ Commission &amp; payouts</span>
+    <h1>Creator &amp; Referral Terms</h1>
+    <div class="updated">Version 2026-11-05 · Last updated 5 November 2026</div>
+    <div class="toc"><a href="#s1">1. What these terms cover</a><a href="#s2">2. Who can earn</a><a href="#s3">3. How commission is worked out</a><a href="#s4">4. Who counts as your referral</a><a href="#s5">5. Discount codes (creators)</a><a href="#s6">6. Bank details and how we pay you</a><a href="#s7">7. When we pay: schedule, minimum and currency</a><a href="#s8">8. Tax</a><a href="#s9">9. How you promote GO / NO-GO</a><a href="#s10">10. What you can and cannot see</a><a href="#s11">11. Fraud, withheld commission and ending the programme</a><a href="#s12">12. Changes to these terms</a><a href="#s13">13. Liability, governing law and contact</a></div>
+  </div>
+  <main>
+    <section id="s1">
+      <h2><span class="n">01</span> What these terms cover</h2>
+      <p>These Creator &amp; Referral Terms apply to anyone who earns, or wants to earn, commission from GO / NO-GO: <strong>approved creators</strong> (influencers, clubs, marinas and other partners we have approved) and <strong>Premium members</strong> who refer friends. They sit alongside our <a href="/terms">Terms of Use</a> and <a href="/privacy.html">Privacy Policy</a>.</p>
+      <p><strong>You must accept these terms, and give us your bank details, before we can pay you anything.</strong> You do that in your account dashboard. By accepting you confirm you have read and agree to them.</p>
+    </section>
+    <section id="s2">
+      <h2><span class="n">02</span> Who can earn</h2>
+      <ul>
+        <li><strong>Approved creators</strong> earn <strong>35%</strong> of net revenue (see section 3). We approve creators by hand, and can say no.</li>
+        <li><strong>Paying Premium members</strong> earn <strong>20%</strong> of net revenue on people they refer.</li>
+        <li>Free members, people on a free trial and founding members (who keep Premium features without paying) <strong>do not</strong> earn commission. You can start earning from the moment you become a paying Premium member or an approved creator.</li>
+      </ul>
+    </section>
+    <section id="s3">
+      <h2><span class="n">03</span> How commission is worked out</h2>
+      <p>Commission is a flat percentage of <strong>net receipts</strong>: what a subscription brings in <em>after</em> the app store&rsquo;s fee (currently 15% through Google Play, and 15% or 30% through Apple&rsquo;s App Store depending on our enrolment in Apple&rsquo;s small business programme), and after any sales tax or VAT included in the price. It is never a percentage of the sticker price. There are no tiers or thresholds, and no cap on what you can earn.</p>
+      <p>We round commission to the nearest cent for each subscriber, each month. Commission recurs for every month your referred subscriber keeps paying, and stops when they stop. A refund, chargeback or cancelled payment reduces or reverses the commission on it.</p>
+      <div class="example"><b>Example (monthly plan, $2.99):</b> after the 15% store fee the net is $2.54. A Premium member earns 20% = <b>$0.51</b> per month per paying referral; an approved creator earns 35% = <b>$0.89</b>. Ten paying referrals therefore earn $5.10 or $8.90 a month. Annual plans earn the same share of their net price, spread across the year.</div>      <p>These figures are examples, not promises. You only earn when people you refer actually subscribe and keep paying. Prices, store fees and rates can change; we will give at least 30 days&rsquo; notice before changing a rate for people you have already referred.</p>
+    </section>
+    <section id="s4">
+      <h2><span class="n">04</span> Who counts as your referral</h2>
+      <p>A subscriber is yours if they sign up using your personal link or your code (a referral code or one of your discount codes) and we record it at sign-up. If someone arrives with more than one code, the first one recorded counts. You cannot refer yourself, your own other accounts, or anyone you control. We decide any dispute about attribution, acting fairly and using our records.</p>
+    </section>
+    <section id="s5">
+      <h2><span class="n">05</span> Discount codes (creators)</h2>
+      <p>Approved creators can make their own discount codes. A discount <strong>comes out of your own commission, never out of ours</strong>: your rate on a subscriber who uses a code is 35% minus the discount. You can offer up to 35% off, at which point you earn nothing on that subscriber but still win them. The discount a subscriber arrived with is recorded when they sign up, so editing or deleting a code later does not change what you are owed on people who already subscribed. You can have up to 20 codes, and code names are first come, first served. We may remove a code that is misleading or abused.</p>
+    </section>
+    <section id="s6">
+      <h2><span class="n">06</span> Bank details and how we pay you</h2>
+      <p>To be paid you must give us a <strong>bank account in your own name</strong> (IBAN, or account number and SWIFT/routing code), and keep it accurate and up to date. If your details are wrong, the money may be delayed or lost and the fault is not ours; if it is returned we will ask you to correct your details and will pay you again.</p>
+      <p>We store your bank details <strong>encrypted</strong>, use them only to pay you and to meet legal obligations, and never sell or share them except with our bank or payment provider to make the transfer. Only authorised staff can see them, and every time they do it is recorded. You can view the end of your account number, update it, or remove it from your dashboard at any time (we cannot pay you without it). We may ask for further information (for example proof of identity or tax details) where the law requires it, and may delay a payment until we have it.</p>
+    </section>
+    <section id="s7">
+      <h2><span class="n">07</span> When we pay: schedule, minimum and currency</h2>
+      <p>Commission is paid <strong>monthly</strong>, once the app store or payment provider has paid us for the month it relates to. A payout is raised for a month once your balance reaches <strong>$20</strong>; smaller balances roll over to the next month. We pay by bank transfer in US dollars or euros, converted at our bank&rsquo;s rate on the day, and we pay the transfer costs on our side (your own bank may charge you). We make one payment per person per month.</p>
+      <p>Your dashboard shows your balance, your payout history and whether your payout details are complete. If you are asked to add or fix details, please do it promptly so we can pay you.</p>
+    </section>
+    <section id="s8">
+      <h2><span class="n">08</span> Tax</h2>
+      <p>You are an independent partner, not our employee, agent or contractor, and you are responsible for your own taxes on what you earn (income tax, VAT or sales tax where they apply, and any registrations or returns). We do not give tax advice. Where the law requires us to report payments or withhold tax, we will do so.</p>
+    </section>
+    <section id="s9">
+      <h2><span class="n">09</span> How you promote GO / NO-GO</h2>
+      <p>Promote us honestly and legally. You agree to:</p>
+      <ul>
+        <li><strong>tell your audience clearly that you earn commission</strong> (for example &ldquo;I earn commission if you subscribe&rdquo;, or #ad), in line with the advertising rules where you and your audience live;</li>
+        <li>never claim, or imply, that GO / NO-GO guarantees safety, replaces seamanship, or that it is safe to go out because the app says so. It is guidance only, and the skipper decides;</li>
+        <li>never promise income, make false or misleading claims, spam, impersonate us or others, or use paid search ads on our name or brand terms;</li>
+        <li>follow the rules of the platforms you use and avoid targeting children;</li>
+        <li>not use bots, fake accounts, incentives that break the stores&rsquo; rules, or any method designed to fake sign-ups or subscriptions.</li>
+      </ul>
+    </section>
+    <section id="s10">
+      <h2><span class="n">10</span> What you can and cannot see</h2>
+      <p>Your dashboard shows <strong>numbers, not people</strong>: a sequence number, the month someone joined, whether they are paying, and what they earn you. We never show you names, emails, exact dates, locations or boat tracks, and you agree not to try to find out, or to collect personal information about people you refer. The numbers are there so you can check our maths.</p>
+    </section>
+    <section id="s11">
+      <h2><span class="n">11</span> Fraud, withheld commission and ending the programme</h2>
+      <p>We can withhold, reverse or recover commission that arose from fraud, self-referral, fake or refunded subscriptions, chargebacks, or a breach of these terms, and we can remove you from the programme and block your account if you seriously or repeatedly break them. Commission properly earned and not affected by any of that remains payable.</p>
+      <p>You can leave at any time. We can end or change the programme or your place in it on 30 days&rsquo; written notice (by email or in the app); commission earned up to the end date is still paid. Ending the programme does not affect your use of the app itself.</p>
+    </section>
+    <section id="s12">
+      <h2><span class="n">12</span> Changes to these terms</h2>
+      <p>We may update these terms. Each version has a date and number and we record which one you accepted. If we change them in a way that matters to you, we will ask you to accept the new version before your next payout; if you do not accept, we cannot pay you under the new terms (commission earned under the old ones stays payable).</p>
+    </section>
+    <section id="s13">
+      <h2><span class="n">13</span> Liability, governing law and contact</h2>
+      <p>Our liability to you under these terms is limited as set out in the Terms of Use, and nothing here excludes liability that cannot lawfully be excluded. These terms are governed by the laws of the Republic of Cyprus, with the consumer protections described in the Terms of Use where they apply. Questions: <a href="mailto:support@gonogoboatapp.com">support@gonogoboatapp.com</a>.</p>
+    </section>
+
+  </main>
+</div>
+<footer>
+  <div class="wrap foot-in">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="GO / NO-GO" style="width:28px;height:28px;border-radius:8px" /><span>GO <b style="color:var(--go)">/</b> NO-GO</span></a>
+    <span class="muted"><a href="/terms">Terms of Use</a> · <a href="/creator-terms">Creator &amp; Referral Terms</a> · <a href="/privacy.html">Privacy</a> · © <span id="yr"></span> GO / NO-GO</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+<script src="/assets/analytics.js" defer></script>
+</body>
+</html>

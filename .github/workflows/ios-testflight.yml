@@ -17,6 +17,10 @@
 #   APP_STORE_CONNECT_PRIVATE_KEY  the WHOLE .p8 file, BEGIN/END lines included
 #   IOS_DIST_P12_BASE64            contents of Documents\ios-signing\p12-base64.txt
 #   IOS_DIST_P12_PASSWORD          contents of Documents\ios-signing\p12-password.txt
+#   REVENUECAT_IOS_KEY             RevenueCat PUBLIC Apple key, "appl_..."
+#                                  (see docs/BILLING_SETUP.md — without it the
+#                                   build fails rather than shipping an app
+#                                   that cannot take a payment)
 #
 # Create the API key at App Store Connect -> Users and Access -> Integrations
 # -> App Store Connect API, with the **App Manager** role. Apple lets you
@@ -33,7 +37,9 @@ on:
       marketing_version:
         description: Version shown in the store (keep it level with Google Play)
         required: false
-        default: "1.4"
+        # 1.5 is the first version that can sell Premium. 1.4 shipped with the
+        # paywall text "coming soon" and no purchase flow at all.
+        default: "1.5"
 
 jobs:
   testflight:
@@ -68,8 +74,33 @@ jobs:
           cd app && npm ci --legacy-peer-deps
 
       # The root build writes to dist/; the Capacitor config reads app/dist.
+      #
+      # VITE_REVENUECAT_IOS_KEY is baked into the bundle at build time, so it
+      # has to be present HERE — not at sign time, not at upload time. It is a
+      # RevenueCat *public* SDK key, which is designed to ship inside an app
+      # binary, so it is not a secret in the cryptographic sense; it lives in
+      # GitHub secrets only to keep it out of a public repo.
+      #
+      # Missing key = a build that installs, runs, and cannot sell anything.
+      # That is the exact fault this pipeline exists to stop shipping, and it
+      # is invisible until a reviewer or a customer taps Subscribe. So it fails
+      # the build instead of warning.
       - name: Build web assets
+        env:
+          VITE_REVENUECAT_IOS_KEY: ${{ secrets.REVENUECAT_IOS_KEY }}
         run: |
+          if [ -z "$VITE_REVENUECAT_IOS_KEY" ]; then
+            echo "::error::REVENUECAT_IOS_KEY is not set, so this build could not take a payment."
+            echo "Add it at Settings -> Secrets and variables -> Actions."
+            echo "Get it from RevenueCat -> Project settings -> API keys -> the *public* app-specific key for the Apple App Store (starts with 'appl_')."
+            exit 1
+          fi
+          case "$VITE_REVENUECAT_IOS_KEY" in
+            appl_*) : ;;
+            goog_*) echo "::error::That is the Google Play key. REVENUECAT_IOS_KEY must be the Apple key, which starts with 'appl_'."; exit 1 ;;
+            sk_*)   echo "::error::That is a RevenueCat SECRET key. Use the public app-specific Apple key ('appl_...') — a secret key must never be in an app binary."; exit 1 ;;
+            *)      echo "::warning::REVENUECAT_IOS_KEY does not start with 'appl_'. Continuing, but check it is the public Apple App Store key." ;;
+          esac
           npm run build
           rm -rf app/dist
           cp -R dist app/dist

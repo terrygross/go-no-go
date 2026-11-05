@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terms of Use | GO / NO-GO</title>
+<meta name="description" content="The terms for using GO / NO-GO: guidance only, accounts, Premium, subscriptions and your responsibilities as skipper." />
+<link rel="canonical" href="https://gonogoboatapp.com/terms" />
+<meta name="robots" content="index, follow" />
+<link rel="icon" type="image/png" href="/assets/logo.png" />
+<meta name="theme-color" content="#0a1622" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#081320;
+    --surface:#0f2436;
+    --border:rgba(255,255,255,.09);
+    --border-strong:rgba(255,255,255,.16);
+    --text:#eef4fa;
+    --muted:#93a7bb;
+    --go:#2ecc71;
+    --go-soft:#4fdc8b;
+    --amber:#f2a93b;
+    --gold:#e8b84b;
+    --teal:#3ecf8e;
+    --maxw:760px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 500px at 82% -8%, rgba(46,204,113,.12), transparent 60%),
+      radial-gradient(760px 520px at 4% 2%, rgba(62,207,142,.07), transparent 55%),
+      linear-gradient(180deg,#081320,#060f18 70%,#050c14);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--go-soft);text-decoration:none}
+  a:hover{text-decoration:underline}
+  img{max-width:100%;display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:40;backdrop-filter:blur(12px);
+    background:rgba(8,19,32,.72);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:'Space Grotesk';font-weight:700;letter-spacing:.01em}
+  .brand img{width:32px;height:32px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+  .brand span{font-size:16px}
+  .brand span b{color:var(--go)}
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:14.5px;font-weight:500}
+  .back:hover{color:var(--text);text-decoration:none}
+  .back svg{width:16px;height:16px}
+
+  /* page head */
+  .head{padding:56px 0 30px;border-bottom:1px solid var(--border)}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--teal);
+    background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.22);
+    padding:6px 13px;border-radius:100px;margin-bottom:20px}
+  h1{font-family:'Space Grotesk';font-weight:700;font-size:clamp(30px,5vw,42px);letter-spacing:-.02em;margin:0 0 10px}
+  .updated{color:var(--muted);font-size:14px;font-family:'Space Grotesk';font-weight:500}
+
+  /* body */
+  main{padding:14px 0 40px}
+  section{padding:26px 0;border-bottom:1px solid var(--border)}
+  section:last-of-type{border-bottom:0}
+  h2{font-family:'Space Grotesk';font-weight:600;font-size:20px;letter-spacing:-.01em;margin:0 0 12px;
+    display:flex;align-items:baseline;gap:12px}
+  h2 .n{font-size:13px;color:var(--go);font-family:'Space Grotesk';font-weight:700;
+    min-width:26px}
+  p{margin:0 0 14px;color:#d4dfe9;font-size:16px}
+  p:last-child{margin-bottom:0}
+  strong{color:var(--text);font-weight:600}
+  .sole{font-family:'Space Grotesk';font-weight:700;letter-spacing:.02em;color:var(--go-soft);font-size:15px}
+
+  .callout{background:linear-gradient(180deg,rgba(232,184,75,.09),rgba(232,184,75,.03));
+    border:1px solid rgba(232,184,75,.3);border-radius:16px;padding:20px 22px;margin:6px 0 0}
+  .callout h3{font-family:'Space Grotesk';font-size:13px;letter-spacing:.04em;text-transform:uppercase;
+    margin:0 0 12px;color:var(--gold)}
+  .callout p{font-size:15px;color:#e6edf3}
+  .callout .risk{margin-top:12px;color:var(--text);font-weight:600}
+
+  .pill-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+  .pill{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:100px;
+    background:rgba(62,207,142,.09);border:1px solid rgba(62,207,142,.22);color:var(--teal)}
+
+  .sub-block{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  .sub-block h3{font-family:'Space Grotesk';font-size:15px;font-weight:600;margin:0 0 8px;color:var(--text)}
+  .sub-block h3 .tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--teal);background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.2);
+    padding:2px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+  .sub-block p{font-size:14.5px;color:var(--muted)}
+
+  /* footer */
+  footer{border-top:1px solid var(--border);padding:32px 0 56px}
+  .foot-in{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px}
+  .foot-in .brand span{font-size:15px}
+  .foot-in .muted{color:var(--muted);font-size:13px}
+
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin:22px 0 0;font-size:14.5px}
+  .toc a{display:inline-block;margin:2px 12px 2px 0;color:var(--muted)}
+  .toc a:hover{color:var(--text)}
+  ul{margin:0 0 14px;padding-left:22px;color:#d4dfe9;font-size:16px}
+  li{margin:0 0 7px}
+  .example{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin:10px 0 14px;font-size:15px;color:#d4dfe9}
+  .example b{color:var(--text)}
+  @media(max-width:560px){h2{flex-direction:column;gap:2px}}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="GO / NO-GO logo" /><span>GO <b>/</b> NO-GO</span></a>
+    <a class="back" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>Back to site</a>
+  </div>
+</header>
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">⚓ Terms &amp; conditions</span>
+    <h1>Terms of Use</h1>
+    <div class="updated">Version 2026-11-05 · Last updated 5 November 2026</div>
+    <div class="toc"><a href="#s1">1. Who we are, and agreeing to these terms</a><a href="#s2">2. What GO / NO-GO is, and what it is not</a><a href="#s3">3. Weather and sea data: we try our best, but we cannot promise accuracy</a><a href="#s4">4. Your responsibilities as skipper</a><a href="#s5">5. Your account</a><a href="#s6">6. Free, Premium and founding members</a><a href="#s7">7. Subscriptions and payments</a><a href="#s8">8. Referrals, creators and discount codes</a><a href="#s9">9. Acceptable use</a><a href="#s10">10. Our property</a><a href="#s11">11. Updates, availability and changes to the service</a><a href="#s12">12. Our responsibility to you (and its limits)</a><a href="#s13">13. Ending your use</a><a href="#s14">14. Changes to these terms</a><a href="#s15">15. Governing law and disputes</a><a href="#s16">16. Contact</a></div>
+  </div>
+  <main>
+    <section id="s1">
+      <h2><span class="n">01</span> Who we are, and agreeing to these terms</h2>
+      <p>GO / NO-GO (&ldquo;<strong>we</strong>&rdquo;, &ldquo;<strong>us</strong>&rdquo;) is a boating weather app and website operated by Terence Gross, Republic of Cyprus. By creating an account, or by using the GO / NO-GO app or the gonogoboatapp.com website, you agree to these Terms of Use and to our <a href="/privacy.html">Privacy Policy</a>.</p>
+      <p><strong>You must accept these terms to use GO / NO-GO.</strong> If you do not agree, please do not create an account or use the app. You must be at least 18 years old, or have a parent or guardian who accepts these terms on your behalf. Referral and creator earnings are covered by separate <a href="/creator-terms">Creator &amp; Referral Terms</a>.</p>
+    </section>
+    <section id="s2">
+      <h2><span class="n">02</span> What GO / NO-GO is, and what it is not</h2>
+      <p>GO / NO-GO turns marine weather forecasts into a simple verdict (GO, THINK TWICE or NO-GO) for recreational powerboats, using the boat, crew and trip details you enter. It is a <strong>decision-support tool only</strong>. It is not a navigation system, not a certified safety or rescue service, and not a substitute for seamanship, local knowledge, official forecasts or professional advice.</p>
+      <p>A verdict is produced automatically from forecast data. It is never permission, clearance or a professional recommendation to go out or to stay ashore. <strong>Conditions guidance only. The final call is always the skipper&rsquo;s.</strong></p>
+    </section>
+    <section id="s3">
+      <h2><span class="n">03</span> Weather and sea data: we try our best, but we cannot promise accuracy</h2>
+      <p>We work hard to present the most accurate guidance we can. But we do not create weather data. Forecasts come from independent third-party providers, including <strong>Open-Meteo</strong> and the <strong>Copernicus Marine Service</strong>, and we use them as received. We cannot control their accuracy, resolution, timeliness or availability.</p>
+      <p>Marine forecasts are predictions, not facts. Conditions can differ from what is forecast, can change faster than any model can predict, and can vary sharply from one headland, bay or hour to the next. Our thresholds are general guides for each boat class and cannot account for your exact boat, loading, experience, crew, equipment or local effects. Data can be late, missing or wrong, and the app can be unavailable. You must always check the sea and sky yourself, and consult official sources (for example your national weather service and navigational warnings) before leaving shore.</p>
+    </section>
+    <section id="s4">
+      <h2><span class="n">04</span> Your responsibilities as skipper</h2>
+      <p>You are solely responsible for the safe operation of your vessel and for everyone on board. You agree to:</p>
+      <ul>
+        <li>make your own decision on whether, when and where to go out, and to turn back when conditions or your judgement say so;</li>
+        <li>make sure your vessel is seaworthy and properly equipped and maintained, that you and your crew carry suitable safety equipment (including lifejackets) and that you hold any licence or qualification the law requires;</li>
+        <li>follow all maritime laws, local rules, restrictions and navigational warnings, and tell someone your plans;</li>
+        <li>never rely on GO / NO-GO alone, and never use it as the only source of weather information;</li>
+        <li>call the emergency services (112, or VHF channel 16) in an emergency. GO / NO-GO cannot call for help for you.</li>
+      </ul>
+    </section>
+    <section id="s5">
+      <h2><span class="n">05</span> Your account</h2>
+      <p>You need a free account to use GO / NO-GO. You must give accurate details, verify your email address with the code we send you, keep your password secret, and tell us if you think your account has been used without your permission. You are responsible for activity on your account. One person, one account.</p>
+      <p><strong>If you used GO / NO-GO before accounts existed</strong> (a &ldquo;founding member&rdquo;), you must still register an account and accept these terms to keep using the app. Registering is what lets us keep your Premium features (see section 6).</p>
+      <p>We may suspend or close an account that breaks these terms, is used fraudulently, or puts others at risk. You can delete your account at any time and we will remove your personal data as described in the Privacy Policy.</p>
+    </section>
+    <section id="s6">
+      <h2><span class="n">06</span> Free, Premium and founding members</h2>
+      <p><strong>Free</strong> gives you today&rsquo;s verdict, a day-of planner (today only), one launch site / marina, and your boat profile. <strong>Premium</strong> adds a 10-day planner, unlimited launch sites / marinas, the &ldquo;home call&rdquo; (guidance on when to head back to the dock), and the ability to earn referral commission under the Creator &amp; Referral Terms. Features and limits can change; we will tell you about material changes in the app or by email.</p>
+      <p>Every new account starts with a <strong>14-day Premium trial</strong>, with no card needed. When it ends your account moves to Free unless you subscribe.</p>
+      <p><strong>Founding members</strong> (people who were already using GO / NO-GO before Premium launched) keep full Premium <em>features</em> free of charge as a thank-you. We intend to keep this for as long as GO / NO-GO offers Premium, and we will give at least 30 days&rsquo; notice before changing it. Founding status is not a payment and does not by itself earn commission.</p>
+    </section>
+    <section id="s7">
+      <h2><span class="n">07</span> Subscriptions and payments</h2>
+      <p>Premium costs <strong>$2.99 per month or $19.99 per year</strong> (prices may change; the price you are shown when you subscribe is the price you pay). You buy Premium inside the app: through the <strong>App Store</strong> on iPhone and iPad, or through <strong>Google Play</strong> on Android. Apple or Google takes the payment and is the seller of record, so we never see or store your card details. Premium is not sold on our website.</p>
+      <p>Subscriptions renew automatically until you cancel. You can cancel at any time &mdash; on iPhone or iPad in Settings, under your name, then Subscriptions; on Android in Google Play, under Subscriptions &mdash; and you keep Premium until the end of the period you have already paid for. Refunds are handled by Apple or Google under their own refund policies, alongside the consumer rights you have by law. Prices are shown excluding sales tax; Apple and Google add any VAT or sales tax we are required to collect, and the total is shown to you before you confirm.</p>
+    </section>
+    <section id="s8">
+      <h2><span class="n">08</span> Referrals, creators and discount codes</h2>
+      <p>Premium members and approved creators can earn commission when people they refer subscribe. Those rules, including how commission is worked out, bank details and payouts, are in the <a href="/creator-terms">Creator &amp; Referral Terms</a>, which you must accept separately before you can be paid. Free accounts, trial accounts and founding members cannot earn commission unless they are paying subscribers or approved creators.</p>
+    </section>
+    <section id="s9">
+      <h2><span class="n">09</span> Acceptable use</h2>
+      <p>You agree not to:</p>
+      <ul>
+        <li>copy, scrape, reverse-engineer or resell the app, the website or our data;</li>
+        <li>use the app unlawfully, or to harm, harass or mislead anyone;</li>
+        <li>create fake or duplicate accounts, or abuse referrals, trials or discount codes;</li>
+        <li>interfere with the service, try to break its security, or access other people&rsquo;s accounts or data;</li>
+        <li>use our name, logos or characters in a way that suggests we endorse you, without our written permission.</li>
+      </ul>
+    </section>
+    <section id="s10">
+      <h2><span class="n">10</span> Our property</h2>
+      <p>GO / NO-GO, its name, logos, characters (including Captain Barnacle Bill), design, text and software belong to us or our licensors. We give you a personal, non-exclusive, non-transferable licence to use the app for your own boating while you comply with these terms. Forecast data belongs to its providers and is used under their licences.</p>
+    </section>
+    <section id="s11">
+      <h2><span class="n">11</span> Updates, availability and changes to the service</h2>
+      <p>We update the app from time to time. The app may tell you when an update is available, and for safety, security or legal reasons we may require you to update to a minimum version to keep using it. We aim to keep the service running but do not promise it will always be available, error-free or uninterrupted, particularly offshore where there may be no signal. We may change or discontinue features, and we will give reasonable notice of significant changes.</p>
+    </section>
+    <section id="s12">
+      <h2><span class="n">12</span> Our responsibility to you (and its limits)</h2>
+      <p><strong>GO / NO-GO is provided &ldquo;as is&rdquo;.</strong> Boating carries real risk. To the fullest extent the law allows, we are not liable for injury, death, loss or damage that results from decisions you make using the app, from inaccurate, late or missing data, from the app or a data source being unavailable, or from conditions that differ from the forecast.</p>
+      <p>Where we are liable to you despite the above, our total liability for all claims is limited to the greater of the amount you paid us in the 12 months before the claim, or &euro;50. This does not limit or exclude anything that cannot lawfully be limited or excluded, including liability for death or personal injury caused by our negligence, for fraud, or your statutory rights as a consumer.</p>
+    </section>
+    <section id="s13">
+      <h2><span class="n">13</span> Ending your use</h2>
+      <p>You can stop using GO / NO-GO and delete your account at any time. We can end or suspend your access if you seriously or repeatedly break these terms. Sections that by their nature should survive (such as the limits on our liability) continue after your account ends.</p>
+    </section>
+    <section id="s14">
+      <h2><span class="n">14</span> Changes to these terms</h2>
+      <p>We may update these terms. Each version has a date and version number, and we record which version you accepted. If we make a significant change you will be asked to accept the new version the next time you use the app or sign in, and you cannot keep using it unless you do. Using GO / NO-GO after a change you have accepted means you agree to it.</p>
+    </section>
+    <section id="s15">
+      <h2><span class="n">15</span> Governing law and disputes</h2>
+      <p>These terms are governed by the laws of the Republic of Cyprus and, where they apply, European Union law. Courts of the Republic of Cyprus have jurisdiction, but if you are a consumer you keep any right to bring a claim in the courts of the country where you live and to rely on the mandatory consumer protections there. EU consumers can also use the European Commission&rsquo;s online dispute resolution platform.</p>
+    </section>
+    <section id="s16">
+      <h2><span class="n">16</span> Contact</h2>
+      <p>Questions about these terms, or want to delete your data? Email <a href="mailto:support@gonogoboatapp.com">support@gonogoboatapp.com</a>.</p>
+    </section>
+
+  </main>
+</div>
+<footer>
+  <div class="wrap foot-in">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="GO / NO-GO" style="width:28px;height:28px;border-radius:8px" /><span>GO <b style="color:var(--go)">/</b> NO-GO</span></a>
+    <span class="muted"><a href="/terms">Terms of Use</a> · <a href="/creator-terms">Creator &amp; Referral Terms</a> · <a href="/privacy.html">Privacy</a> · © <span id="yr"></span> GO / NO-GO</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+<script src="/assets/analytics.js" defer></script>
+</body>
+</html>

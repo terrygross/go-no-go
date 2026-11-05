@@ -771,7 +771,7 @@ const STORAGE_KEYS = {
 // asks our server which version is current. APP_VERSION_CODE MUST equal versionCode in
 // app/android/app/build.gradle; bump both on every release. The latest/minimum codes and the
 // message are edited in the admin ("App version"), and take effect when the release is live on Play.
-const APP_VERSION_CODE = 5;
+const APP_VERSION_CODE = 6;
 const API_BASE = "https://api.gonogoboatapp.com";
 
 function getStoredJson(key, fallback) {

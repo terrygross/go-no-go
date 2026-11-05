@@ -11,6 +11,7 @@ import {
   SITE, api, clearAllLocalData, clearSession, clearStoredReferral, detectLegacy, getSession,
   isLegacyMember, onSessionChange, saveSession, storedReferral, updateSessionUser,
 } from "./session.js";
+import { resetBilling } from "../lib/billing.js";
 import { Btn, C, Check, Field, Logo, Msg, Notice, PasswordField, Shell, TextLink, Title } from "./ui.jsx";
 
 // Runs once when this module loads, i.e. BEFORE the app mounts and writes its own defaults.
@@ -72,11 +73,19 @@ export default function AccountGate({ children }) {
     return () => { window.removeEventListener("online", go); document.removeEventListener("visibilitychange", onVisible); };
   }, [hasSession, refresh]);
 
-  const signOut = useCallback(() => { clearSession(); setPending(""); setMode("signin"); setNotice(""); }, []);
+  // resetBilling() matters on a shared phone: the RevenueCat SDK stays logged
+  // in as whoever configured it, so without this the next person to sign in
+  // would be handed the previous person's Premium. It never throws and never
+  // blocks the sign-out itself.
+  const signOut = useCallback(() => {
+    resetBilling().catch(() => {});
+    clearSession(); setPending(""); setMode("signin"); setNotice("");
+  }, []);
   const deleteAccount = useCallback(async (password) => {
     const u = getSession()?.user;
     if (!u) throw new Error("You are not signed in.");
     await api("/auth/delete-account", { method: "POST", auth: false, body: { email: u.email, password } });
+    resetBilling().catch(() => {});
     clearAllLocalData();
     setPending(""); setMode("welcome"); setNotice("Your account has been deleted.");
   }, []);
