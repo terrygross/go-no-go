@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "go-no-go",
+      "name": "go-no-go-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 5173,
-      "cwd": "app"
+      "port": 3000,
+      "url": "http://localhost:3000"
     }
   ]
 }
