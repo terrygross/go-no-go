@@ -142,6 +142,12 @@ cd website && npx wrangler pages deploy pub --project-name=gonogo-website --comm
 GitHub → Actions → **iOS TestFlight** → Run workflow. Version defaults to 1.5.
 It will fail fast if step 3 was missed, which is deliberate.
 
+I renamed the App Store version record from 1.4 to **1.5** so the new build
+attaches to it. It was never submitted, so nothing was lost by renaming it —
+and Apple would not have let you create a second record while an unreleased one
+was sitting there. Build 6 (the old 1.4) is still shown under Build on that
+page; swap it for the new one when it appears.
+
 When the build lands in TestFlight:
 
 - Install it, open the paywall, **screenshot it**. Apple requires a review
