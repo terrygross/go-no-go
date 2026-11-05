@@ -197,6 +197,21 @@ VITE_REVENUECAT_IOS_KEY=appl_xxxxxxxx
 VITE_REVENUECAT_ANDROID_KEY=goog_xxxxxxxx
 ```
 
+Both of those are **public** app-specific keys. They ship inside the app and
+are not secrets. The `sk_` key is a secret and goes only in the Worker.
+
+Then build the Android app with:
+
+```bash
+npm run build:android
+```
+
+Use that rather than `npm run build`, because it refuses to build without the
+Play key. That matters more than it sounds: without a key the app does not
+error, it just quietly decides purchases are unavailable — which is exactly how
+v1.4 reached the Play Store unable to take a payment. The iOS workflow has the
+same guard.
+
 ## 6 · Ship it
 
 - **iOS** — run the iOS TestFlight workflow. Nothing else needed from you.
