@@ -1,0 +1,303 @@
+# Builds a signed iOS app of GO / NO-GO and uploads it to TestFlight.
+#
+# Run it by hand from the Actions tab. TestFlight is beta distribution — the
+# same binary is then submitted for App Review from App Store Connect.
+#
+# WHY THE CERTIFICATE IS A SECRET BUT THE PROFILE IS NOT
+#
+# -allowProvisioningUpdates lets Xcode create PROFILES on its own, but a new
+# distribution CERTIFICATE needs a keychain to put the private key in, and a
+# clean CI VM has none. So the certificate is supplied from a secret (made
+# once by hand) and the App Store Connect API key does the profile work.
+#
+# SECRETS REQUIRED (Settings -> Secrets and variables -> Actions)
+#
+#   APP_STORE_CONNECT_KEY_ID       e.g. 2X9R4HXF34
+#   APP_STORE_CONNECT_ISSUER_ID    the UUID on the Keys page
+#   APP_STORE_CONNECT_PRIVATE_KEY  the WHOLE .p8 file, BEGIN/END lines included
+#   IOS_DIST_P12_BASE64            contents of Documents\ios-signing\p12-base64.txt
+#   IOS_DIST_P12_PASSWORD          contents of Documents\ios-signing\p12-password.txt
+#
+# Create the API key at App Store Connect -> Users and Access -> Integrations
+# -> App Store Connect API, with the **App Manager** role. Apple lets you
+# download the .p8 exactly once.
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: What testers should know about this build
+        required: false
+        default: Internal build
+      marketing_version:
+        description: Version shown in the store (keep it level with Google Play)
+        required: false
+        default: "1.4"
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    env:
+      TEAM_ID: H5JL2T3Y4X
+      SCHEME: App
+      BUNDLE_ID: com.gonogo.marine
+      PROFILE_NAME: GoNoGo iOS App Store
+      # TestFlight rejects a build number it has seen before, so it has to rise
+      # every run. The run number does that on its own and never repeats.
+      BUILD_NUMBER: ${{ github.run_number }}
+      MARKETING_VERSION: ${{ github.event.inputs.marketing_version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Two npm projects: the Vite app at the root, the Capacitor shell in app/.
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd app && npm ci --legacy-peer-deps
+
+      # The root build writes to dist/; the Capacitor config reads app/dist.
+      - name: Build web assets
+        run: |
+          npm run build
+          rm -rf app/dist
+          cp -R dist app/dist
+
+      - name: Sync Capacitor
+        working-directory: app
+        run: npx cap sync ios
+
+      # xcodebuild reads the key from a file path, so it has to land on disk,
+      # outside the workspace so no build step or artifact can pick it up.
+      # The key goes through an env var rather than being interpolated into the
+      # script: a secret containing anything shell-significant would otherwise
+      # corrupt the script itself.
+      #
+      # The CR stripping is the point of this step. A .p8 copied out of Notepad
+      # on Windows arrives CRLF-terminated and xcodebuild rejects it with
+      # "Invalid authentication key credential (invalidPEMDocument)" — a message
+      # that says nothing about line endings.
+      - name: Place the App Store Connect API key
+        env:
+          ASC_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          P8=~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          printf '%s\n' "$ASC_KEY" | tr -d '\r' > "$P8"
+          chmod 600 "$P8"
+
+          if ! grep -q 'BEGIN PRIVATE KEY' "$P8"; then
+            echo "::error::APP_STORE_CONNECT_PRIVATE_KEY has no BEGIN PRIVATE KEY line. Paste the whole .p8, including the BEGIN and END lines."
+            exit 1
+          fi
+          if ! openssl pkcs8 -nocrypt -inform PEM -in "$P8" -out /dev/null 2>/dev/null; then
+            echo "::error::The key is not valid PKCS#8 PEM. Re-copy the .p8 exactly as Apple downloaded it."
+            echo "first line: $(head -1 "$P8")"
+            exit 1
+          fi
+          echo "API key parses as valid PKCS#8 PEM"
+
+      - name: Import the signing certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          CERT_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+        run: |
+          if [ -z "$CERT_P12_BASE64" ]; then
+            echo "::error::IOS_DIST_P12_BASE64 is not set."
+            exit 1
+          fi
+
+          CERT="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KP="$(uuidgen)"
+
+          echo "$CERT_P12_BASE64" | base64 --decode > "$CERT"
+
+          # A dedicated keychain, not the login one: unlocked with a throwaway
+          # password and thrown away with the VM.
+          security create-keychain -p "$KP" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KP" "$KEYCHAIN"
+          security import "$CERT" -P "$CERT_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+
+          # Without this, codesign prompts for permission and hangs the build
+          # until the job times out.
+          security set-key-partition-list -S apple-tool:,apple: -k "$KP" "$KEYCHAIN" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain
+
+          echo "--- signing identities now available ---"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "Apple Distribution\|iPhone Distribution"; then
+            echo "::error::No distribution identity in the keychain. The .p12 may be the wrong certificate type, or the password is wrong."
+            exit 1
+          fi
+
+      # Creates the App Store provisioning profile outright rather than letting
+      # Xcode infer one. Left to itself Xcode asks for a DEVELOPMENT profile —
+      # Capacitor's template sets CODE_SIGN_IDENTITY to "iPhone Developer" —
+      # and then fails with "your team has no devices", which is true and
+      # entirely beside the point for an App Store build.
+      - name: Ensure an App Store provisioning profile
+        id: profile
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography
+          python3 - <<'PROF'
+          import os, time, json, base64, pathlib, urllib.request, urllib.error, jwt
+
+          key_id = os.environ["ASC_KEY_ID"]
+          issuer = os.environ["ASC_ISSUER"]
+          bundle = os.environ["BUNDLE_ID"]
+          pname  = os.environ["PROFILE_NAME"]
+          pem    = open(os.path.expanduser("~/private_keys/AuthKey_%s.p8" % key_id)).read()
+
+          token = jwt.encode(
+              {"iss": issuer, "iat": int(time.time()), "exp": int(time.time()) + 900,
+               "aud": "appstoreconnect-v1"},
+              pem, algorithm="ES256", headers={"kid": key_id, "typ": "JWT"})
+
+          def call(path, method="GET", body=None):
+              req = urllib.request.Request(
+                  "https://api.appstoreconnect.apple.com/v1/" + path,
+                  method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={"Authorization": "Bearer " + token,
+                           "Content-Type": "application/json"})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return r.status, (json.load(r) if r.status != 204 else {})
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode()[:600]
+
+          st, bids = call("bundleIds?filter[identifier]=" + bundle)
+          assert st == 200 and bids["data"], ("bundle id lookup failed", st, bids)
+          bid = bids["data"][0]["id"]
+          print("bundle id resource:", bid)
+
+          st, certs = call("certificates?filter[certificateType]=DISTRIBUTION")
+          assert st == 200 and certs["data"], ("no distribution certificate", st, certs)
+          cert_id = certs["data"][0]["id"]
+          print("certificate:", certs["data"][0]["attributes"]["name"])
+
+          st, profs = call("profiles?limit=200")
+          existing = [x for x in profs.get("data", []) if x["attributes"]["name"] == pname]
+          for x in list(existing):
+              if x["attributes"]["profileState"] != "ACTIVE":
+                  print("deleting stale profile", x["id"], x["attributes"]["profileState"])
+                  call("profiles/" + x["id"], "DELETE")
+                  existing.remove(x)
+
+          if existing:
+              prof = existing[0]
+              print("reusing profile:", prof["attributes"]["name"])
+          else:
+              st, created = call("profiles", "POST", {"data": {
+                  "type": "profiles",
+                  "attributes": {"name": pname, "profileType": "IOS_APP_STORE"},
+                  "relationships": {
+                      "bundleId": {"data": {"type": "bundleIds", "id": bid}},
+                      "certificates": {"data": [{"type": "certificates", "id": cert_id}]}}}})
+              if st not in (200, 201):
+                  print("::error::Could not create the provisioning profile")
+                  print(created)
+                  raise SystemExit(1)
+              prof = created["data"]
+              print("created profile:", prof["attributes"]["name"])
+
+          uuid = prof["attributes"]["uuid"]
+          dest = pathlib.Path.home() / "Library/MobileDevice/Provisioning Profiles"
+          dest.mkdir(parents=True, exist_ok=True)
+          (dest / (uuid + ".mobileprovision")).write_bytes(
+              base64.b64decode(prof["attributes"]["profileContent"]))
+          print("installed profile uuid:", uuid)
+          PROF
+
+      # Capacitor 8 uses Swift Package Manager, so there is no .xcworkspace and
+      # no Podfile — the project builds directly.
+      - name: Archive
+        working-directory: app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project App.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+      - name: Export the .ipa
+        working-directory: app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ls -lh "$RUNNER_TEMP/export"
+
+      # Checked before the upload rather than after, because a rejected upload
+      # still burns a build number and several minutes.
+      - name: Check the .ipa before sending it
+        run: |
+          IPA=$(ls "$RUNNER_TEMP/export"/*.ipa | head -1)
+          test -n "$IPA" || { echo "no .ipa was produced"; exit 1; }
+          echo "ipa: $IPA ($(du -h "$IPA" | cut -f1))"
+
+          rm -rf "$RUNNER_TEMP/peek" && mkdir -p "$RUNNER_TEMP/peek"
+          unzip -q "$IPA" -d "$RUNNER_TEMP/peek"
+          APP=$(ls -d "$RUNNER_TEMP/peek/Payload"/*.app | head -1)
+
+          echo "--- identity ---"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier'         "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion'            "$APP/Info.plist"
+
+          echo "--- it must be signed, or TestFlight refuses it ---"
+          codesign -dv "$APP" 2>&1 | grep -E 'Authority|TeamIdentifier'
+
+          echo "--- the app asks for location, so Apple requires this string ---"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP/Info.plist"
+          echo "OK"
+
+      - name: Upload to TestFlight
+        run: |
+          IPA=$(ls "$RUNNER_TEMP/export"/*.ipa | head -1)
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            --apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        env:
+          API_PRIVATE_KEYS_DIR: ~/private_keys
+
+      - name: Tidy up the key
+        if: always()
+        run: rm -rf ~/private_keys
+
+      - name: What happens next
+        run: |
+          echo "Uploaded build $BUILD_NUMBER (version $MARKETING_VERSION)."
+          echo "Apple processes it for 5-15 minutes before it shows in TestFlight."
+          echo "Then pick it as the build for the App Store version and submit for review."
+          echo "Notes for testers: ${{ github.event.inputs.notes }}"

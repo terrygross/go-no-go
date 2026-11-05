@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useAccount } from "./account/AccountGate.jsx";
+import { AccountPanel } from "./account/AccountPanel.jsx";
 import { Share } from "@capacitor/share";
 
 const FONTS = `
@@ -761,7 +763,16 @@ const STORAGE_KEYS = {
   LAST_FORECAST: "gonogo_last_forecast_data_v1",
   SUBSCRIPTION: "gonogo_subscription_plan_v1",
   UNITS: "gonogo_units_preference_v1",
+  UPDATE_DISMISSED: "gonogo_update_dismissed_v1",
 };
+
+// ── App update check ──────────────────────────────────────────────────────
+// Google Play does not tell people an update exists until they open the Play Store, so the app
+// asks our server which version is current. APP_VERSION_CODE MUST equal versionCode in
+// app/android/app/build.gradle; bump both on every release. The latest/minimum codes and the
+// message are edited in the admin ("App version"), and take effect when the release is live on Play.
+const APP_VERSION_CODE = 5;
+const API_BASE = "https://api.gonogoboatapp.com";
 
 function getStoredJson(key, fallback) {
   try {
@@ -783,19 +794,31 @@ function setStoredJson(key, value) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GoNoGo() {
   const [screen, setScreen]   = useState("today");
+  // Who is signed in and what their account unlocks (see entitlementsFor() in the API).
+  // Free: day-of planner, 1 launch site, no home call. Premium / trial / founding member: everything.
+  const acct = useAccount();
+  const ent = acct?.entitlements || { planDays: 1, maxMarinas: 1, homeCall: false };
+  const premium = !!acct?.hasPremiumAccess;
 
   const insets = {top: 28, bottom: 48};
   const [unitSystem, setUnitSystem] = useState(() => getStoredJson(STORAGE_KEYS.UNITS, "imperial"));
   useEffect(() => { setStoredJson(STORAGE_KEYS.UNITS, unitSystem); }, [unitSystem]);
 
-  const [boat, setBoat]       = useState(() => getStoredJson(STORAGE_KEYS.BOAT, {
-    hull:"Bowrider", length:5.5, skipper:"Confident", speed:20,
-    marina:{ name:"Latchi Marina", lat:35.0294, lon:32.3842 },
-    boatName: "", regNumber: "", vhfCallSign: "",
-    ownerName: "", email: "", phone: "", address: "",
-    emergencyContact: "", emergencyPhone: "",
-    boatPhoto: null,
-  }));
+  const [boat, setBoat]       = useState(() => {
+    const defaults = {
+      hull:"Bowrider", length:5.5, skipper:"Confident", speed:20,
+      marina:{ name:"Latchi Marina", lat:35.0294, lon:32.3842 },
+      boatName: "", regNumber: "", vhfCallSign: "",
+      ownerName: "", email: "", phone: "", address: "",
+      emergencyContact: "", emergencyPhone: "",
+      boatPhoto: null,
+    };
+    const stored = getStoredJson(STORAGE_KEYS.BOAT, null);
+    // A saved profile from an older version (or a damaged one) may be missing fields; never crash on it.
+    return stored && typeof stored === "object"
+      ? { ...defaults, ...stored, marina: stored.marina && stored.marina.name ? stored.marina : defaults.marina }
+      : defaults;
+  });
   const [subPlan, setSubPlan] = useState(() => getStoredJson(STORAGE_KEYS.SUBSCRIPTION, "yearly"));
   useEffect(() => { setStoredJson(STORAGE_KEYS.SUBSCRIPTION, subPlan); }, [subPlan]);
   const [trip, setTrip]       = useState(() => getStoredJson(STORAGE_KEYS.TRIP, {
@@ -819,6 +842,22 @@ export default function GoNoGo() {
   const [currentTime, setCurrentTime]   = useState(new Date());
   const [marinaGpsLoading, setMarinaGpsLoading] = useState(false);
   const [shareToast, setShareToast]     = useState(false);
+  // null until the server answers; an offline or failed check silently does nothing.
+  const [updateInfo, setUpdateInfo]     = useState(null);
+  const [updateDismissed, setUpdateDismissed] = useState(() => getStoredJson(STORAGE_KEYS.UPDATE_DISMISSED, 0));
+  useEffect(() => {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    fetch(`${API_BASE}/app/version?platform=android`, { signal: ctl.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (j && Number.isFinite(j.latestVersionCode)) setUpdateInfo(j); })
+      .catch(() => {})
+      .finally(() => clearTimeout(t));
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, []);
+  const updateAvailable = !!updateInfo && updateInfo.latestVersionCode > APP_VERSION_CODE;
+  const updateRequired  = !!updateInfo && updateInfo.minVersionCode > APP_VERSION_CODE;
+  const showUpdateBanner = updateAvailable && !updateRequired && updateDismissed < updateInfo.latestVersionCode;
 
   // Return Alarm & Phone Wake Management
   const [alarmSnoozedUntil, setAlarmSnoozedUntil] = useState(null);
@@ -1055,7 +1094,9 @@ export default function GoNoGo() {
   }
 
   // Show return window whenever we have good conditions now and a defined daylight/weather window
-  const showReturnWindow = deadlineDate != null && !isPastDeadline && now === 0;
+  const returnWindowOpen = deadlineDate != null && !isPastDeadline && now === 0;
+  const showReturnWindow = ent.homeCall && returnWindowOpen;
+  const returnLocked = !ent.homeCall && returnWindowOpen;
   const urgency = minsRemaining != null
     ? (minsRemaining <= 0 ? "red" : minsRemaining <= 30 ? "red" : minsRemaining <= 60 ? "amber" : "ok")
     : "ok";
@@ -1368,7 +1409,7 @@ export default function GoNoGo() {
   }
 
   async function handleSocialShare() {
-    const shareUrl = "https://go-no-go-692246708745.europe-west1.run.app";
+    const shareUrl = acct?.referralCode ? `https://gonogoboatapp.com/?ref=${acct.referralCode}` : "https://gonogoboatapp.com";
     const shareTitle = "GO / NO-GO — Marine Weather";
     const shareText = `Check today's boating conditions for ${boat.marina.name} with GO / NO-GO!\n${shareUrl}`;
     try {
@@ -1427,6 +1468,37 @@ export default function GoNoGo() {
       <div className="phone-frame" style={{background:C.ink,color:C.foam}}>
         {/* Top spacer — pushes content below Android status bar */}
         <div style={{height:insets.top,flexShrink:0,background:C.ink}} />
+
+        {/* ── UPDATE REQUIRED (this version is below the minimum we still support) ── */}
+        {updateRequired && (
+          <div style={{position:"absolute",inset:0,zIndex:80,background:C.ink,display:"flex",flexDirection:"column",
+            alignItems:"center",justifyContent:"center",padding:"28px 24px",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:14}}>⬆️</div>
+            <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontSize:24,color:C.foam,marginBottom:10}}>Please update GO / NO-GO</div>
+            <div style={{fontSize:14,lineHeight:1.5,color:C.slate,maxWidth:300,marginBottom:22}}>
+              {updateInfo.updateMessage || "This version is no longer supported. Please update to keep using the app."}
+            </div>
+            <a href={updateInfo.storeUrl} target="_blank" rel="noopener"
+               style={{background:C.green,color:"#04210f",fontWeight:700,fontSize:15,padding:"13px 26px",borderRadius:100,textDecoration:"none"}}>
+              Update on Google Play
+            </a>
+          </div>
+        )}
+
+        {/* ── UPDATE AVAILABLE (soft banner, dismissible until the next version) ── */}
+        {showUpdateBanner && (
+          <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:10,padding:"9px 14px",background:C.greenDeep,
+            borderBottom:`1px solid ${C.hair}`,color:C.foam,fontSize:12.5}}>
+            <span style={{flex:1,lineHeight:1.35}}>
+              <b>Update available{updateInfo.latestVersionName ? ` (v${updateInfo.latestVersionName})` : ""}.</b>{" "}
+              {updateInfo.updateMessage}
+            </span>
+            <a href={updateInfo.storeUrl} target="_blank" rel="noopener"
+               style={{background:C.green,color:"#04210f",fontWeight:700,padding:"6px 13px",borderRadius:100,textDecoration:"none",whiteSpace:"nowrap"}}>Update</a>
+            <button onClick={() => { setUpdateDismissed(updateInfo.latestVersionCode); setStoredJson(STORAGE_KEYS.UPDATE_DISMISSED, updateInfo.latestVersionCode); }}
+               aria-label="Dismiss" style={{background:"transparent",border:"none",color:C.foam,fontSize:18,cursor:"pointer",padding:"0 4px"}}>×</button>
+          </div>
+        )}
 
         {/* ── HEAD BACK SAFETY PROMPT OVERLAY (Triggers when offshore past return window) ── */}
         {shouldTriggerAlarm && (
@@ -1663,6 +1735,16 @@ export default function GoNoGo() {
                     </div>
                   </div>
                 </div>
+              ) : returnLocked ? (
+                <div style={{padding:"4px 20px 4px"}}>
+                  <button onClick={()=>setScreen("account")} style={{width:"100%",textAlign:"left",background:C.ink2,borderRadius:12,
+                    padding:"12px 14px",border:`1px dashed ${C.hair}`,color:C.foam,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
+                    <div style={{fontSize:13,fontWeight:600}}>🔒 Home call</div>
+                    <div style={{fontSize:11,color:C.slate,marginTop:4,lineHeight:1.4}}>
+                      Premium tells you when to head back to the dock, and alerts you if you're still out past your window. Tap to see what Premium includes.
+                    </div>
+                  </button>
+                </div>
               ) : null}
 
               {/* day kit */}
@@ -1701,7 +1783,7 @@ export default function GoNoGo() {
           {screen==="plan"&&(
             <div style={{padding:"10px 20px 24px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:2}}>
-                <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontStretch:"125%",fontSize:22}}>Next 10 days</div>
+                <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontStretch:"125%",fontSize:22}}>{ent.planDays>=10?"Next 10 days":"Today\u2019s plan"}</div>
                 <div style={{fontSize:11,color:C.slate,fontFamily:"'IBM Plex Mono',monospace"}}>
                   {unitSystem === "metric" ? "km/h · meters" : "knots · feet"}
                 </div>
@@ -1714,6 +1796,14 @@ export default function GoNoGo() {
                 const isBest=i===bestDayIdx;
                 const wObj = formatWind(day.wMax, unitSystem);
                 const hObj = formatWave(day.hMax, unitSystem);
+                if (i >= ent.planDays) return (
+                  <div key={day.d||i} onClick={()=>setScreen("account")}
+                    style={{display:"flex",alignItems:"center",gap:12,padding:"9px 10px",borderRadius:10,marginBottom:4,cursor:"pointer",opacity:0.55}}>
+                    <div style={{width:52,fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:C.slate}}>{day.d}</div>
+                    <div style={{flex:1,height:20,borderRadius:5,background:C.ink2,border:`1px dashed ${C.hair}`}}/>
+                    <div style={{width:104,textAlign:"right",fontSize:11,color:C.slate}}>🔒 Premium</div>
+                  </div>
+                );
                 return (
                   <div key={day.d||i}
                     onClick={()=>setPlanDayPopup(i)}
@@ -1735,11 +1825,19 @@ export default function GoNoGo() {
               <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.slate,margin:"6px 10px 0"}}>
                 <span>◧ morning · afternoon ◨</span><span>faded = lower confidence</span>
               </div>
-              <div style={{marginTop:14,padding:14,borderRadius:12,background:C.ink2,fontSize:13,lineHeight:1.55}}>
-                <span style={{color:C.green,fontWeight:600}}>Best window: </span>
-                {adjDays[bestDayIdx]?.d} — lowest wind and wave in the next 10 days for your setup.
-                {" "}Days 8–10 are an outlook — recheck as they approach.
-              </div>
+              {ent.planDays >= 10 ? (
+                <div style={{marginTop:14,padding:14,borderRadius:12,background:C.ink2,fontSize:13,lineHeight:1.55}}>
+                  <span style={{color:C.green,fontWeight:600}}>Best window: </span>
+                  {adjDays[bestDayIdx]?.d} — lowest wind and wave in the next 10 days for your setup.
+                  {" "}Days 8–10 are an outlook — recheck as they approach.
+                </div>
+              ) : (
+                <button onClick={()=>setScreen("account")} style={{marginTop:14,width:"100%",textAlign:"left",padding:14,borderRadius:12,
+                  background:C.ink2,border:`1px dashed ${C.green}66`,color:C.foam,fontSize:13,lineHeight:1.55,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
+                  <span style={{color:C.green,fontWeight:600}}>🔒 See the next 10 days. </span>
+                  Premium shows the full 10-day planner and finds your best window for your boat. Tap to see what Premium includes.
+                </button>
+              )}
             </div>
           )}
 
@@ -2002,11 +2100,13 @@ export default function GoNoGo() {
 
               <div style={{marginBottom:18}}>
                 <div style={{fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:C.slate,marginBottom:6}}>Home marina</div>
-                <div style={{fontSize:11,color:C.slate,marginBottom:10,opacity:0.7}}>Tap to select · drag ☰ to reorder · ▲/▼ to shift</div>
+                <div style={{fontSize:11,color:C.slate,marginBottom:10,opacity:0.7}}>
+                  {ent.maxMarinas == null ? "Tap to select · drag ☰ to reorder · ▲/▼ to shift" : "Your launch site. Free includes one; Premium lets you save as many as you like."}
+                </div>
 
                 {/* Draggable & selectable marina list */}
                 <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${C.hair}`,marginBottom:10,background:"#061624"}}>
-                  {marinaOrder.map((name,i)=>{
+                  {(ent.maxMarinas == null ? marinaOrder : marinaOrder.slice(0, ent.maxMarinas)).map((name,i,visibleList)=>{
                     const m = MARINAS.find(x=>x.name===name);
                     if(!m) return null;
                     const isHome     = i===0;
@@ -2021,7 +2121,7 @@ export default function GoNoGo() {
                         style={{
                           display:"flex",alignItems:"center",gap:8,padding:"10px 12px",
                           background:isDragging?`${C.green}33`:isTarget?`${C.green}18`:isHome?`${C.green}12`:"transparent",
-                          borderBottom:i<marinaOrder.length-1?`1px solid ${C.hair}`:"none",
+                          borderBottom:i<visibleList.length-1?`1px solid ${C.hair}`:"none",
                           borderLeft:isHome?`3px solid ${C.green}`:"3px solid transparent",
                           transform:isDragging?`translateY(${dragOffsetY}px)`:"none",
                           transition:isDragging?"none":"transform 0.15s ease, background 0.15s ease",
@@ -2094,6 +2194,13 @@ export default function GoNoGo() {
                     );
                   })}
                 </div>
+                {ent.maxMarinas != null && (
+                  <select value="" onChange={e=>{ if(e.target.value) selectMarina(e.target.value); }}
+                    style={{...INPUT,width:"100%",marginTop:10}}>
+                    <option value="">Change my launch site…</option>
+                    {MARINAS.filter(m=>m.name!=="Custom" && m.name!==marinaOrder[0]).map(m=>(<option key={m.name} value={m.name}>{m.name}</option>))}
+                  </select>
+                )}
               </div>
 
                 {/* Custom / GPS row */}
@@ -2115,53 +2222,23 @@ export default function GoNoGo() {
                   </button>
                 </div>
 
-              {/* Subscription & Pricing */}
-              <div style={{marginTop:16,marginBottom:18,borderRadius:14,border:`1px solid ${C.hair}`,padding:14,background:C.ink2}}>
+              {/* Your plan */}
+              <button onClick={()=>setScreen("account")}
+                style={{marginTop:16,marginBottom:18,width:"100%",textAlign:"left",borderRadius:14,border:`1px solid ${C.hair}`,padding:14,
+                  background:C.ink2,color:C.foam,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <div style={{fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:C.slate,fontWeight:600}}>
-                    Go / No-Go Skipper Plan
-                  </div>
-                  <span style={{fontSize:9,padding:"2px 8px",borderRadius:999,background:`${C.green}2A`,color:C.green,fontWeight:600}}>
-                    {subPlan==="yearly" ? "BEST VALUE" : "ACTIVE"}
+                  <div style={{fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:C.slate,fontWeight:600}}>Your plan</div>
+                  <span style={{fontSize:9,padding:"2px 8px",borderRadius:999,background:premium?`${C.green}2A`:`${C.amber}22`,color:premium?C.green:C.amber,fontWeight:600}}>
+                    {acct?.user?.isPremium ? "PREMIUM" : acct?.onTrial ? `TRIAL · ${acct.trialDaysLeft} DAYS LEFT` : acct?.grandfathered ? "FOUNDING MEMBER" : "FREE"}
                   </span>
                 </div>
-
-                <div style={{fontSize:12,color:C.slate,marginBottom:12,lineHeight:1.4}}>
-                  Includes unlimited marine forecasts, continuous swell chop analysis, and live return window countdown alerts.
+                <div style={{fontSize:12,color:C.slate,lineHeight:1.5}}>
+                  {premium
+                    ? "You have the 10-day planner, unlimited launch sites and the home call."
+                    : "Free: today\u2019s verdict and day-of planner, one launch site. Premium adds the 10-day planner, unlimited launch sites and the home call."}
+                  {" "}Tap for details.
                 </div>
-
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                  <div
-                    onClick={()=>setSubPlan("monthly")}
-                    style={{
-                      padding:"12px 10px",borderRadius:10,cursor:"pointer",textAlign:"center",
-                      border:subPlan==="monthly"?`2px solid ${C.green}`:`1px solid ${C.hair}`,
-                      background:subPlan==="monthly"?`${C.green}15`:"transparent",
-                      transition:"all 0.15s ease"
-                    }}>
-                    <div style={{fontSize:11,color:C.slate,marginBottom:2}}>Monthly</div>
-                    <div style={{fontSize:16,fontWeight:700,color:C.foam}}>$1.99</div>
-                    <div style={{fontSize:10,color:C.slate,opacity:0.7}}>/ month</div>
-                  </div>
-
-                  <div
-                    onClick={()=>setSubPlan("yearly")}
-                    style={{
-                      padding:"12px 10px",borderRadius:10,cursor:"pointer",textAlign:"center",
-                      border:subPlan==="yearly"?`2px solid ${C.green}`:`1px solid ${C.hair}`,
-                      background:subPlan==="yearly"?`${C.green}15`:"transparent",
-                      transition:"all 0.15s ease",position:"relative"
-                    }}>
-                    <div style={{fontSize:11,color:C.slate,marginBottom:2}}>Annual</div>
-                    <div style={{fontSize:16,fontWeight:700,color:C.green}}>$19.00</div>
-                    <div style={{fontSize:10,color:C.slate,opacity:0.7}}>($1.58 / mo)</div>
-                  </div>
-                </div>
-
-                <div style={{fontSize:10,color:C.slate,textAlign:"center",opacity:0.75}}>
-                  Standard in-app billing · Cancel anytime
-                </div>
-              </div>
+              </button>
 
               <div style={{marginTop:8,padding:14,borderRadius:12,background:C.ink2,fontSize:13,lineHeight:1.55,color:C.slate}}>
                 Set once. Every verdict is calculated for{" "}
@@ -2174,7 +2251,7 @@ export default function GoNoGo() {
                   Backup &amp; Restore
                 </div>
                 <div style={{fontSize:12,color:C.slate,marginBottom:14,lineHeight:1.5}}>
-                  Save your boat profile as a file — restore it any time, on any phone. No account needed.
+                  Save your boat profile as a file — restore it any time, on any phone.
                 </div>
 
                 <div style={{display:"flex",gap:8}}>
@@ -2225,12 +2302,28 @@ export default function GoNoGo() {
                 </div>
               </div>
 
+              <button onClick={()=>setScreen("account")}
+                style={{marginTop:16,width:"100%",background:`${C.green}1A`,
+                  border:`1px solid ${C.green}55`,borderRadius:10,padding:"12px 0",
+                  fontFamily:"'IBM Plex Sans',sans-serif",fontSize:12,fontWeight:600,color:C.green,cursor:"pointer"}}>
+                My account &amp; plan
+              </button>
               <button onClick={()=>setScreen("legal")}
-                style={{marginTop:16,width:"100%",background:"transparent",
+                style={{marginTop:10,width:"100%",background:"transparent",
                   border:`1px solid ${C.hair}`,borderRadius:10,padding:"12px 0",
                   fontFamily:"'IBM Plex Sans',sans-serif",fontSize:12,color:C.slate,cursor:"pointer"}}>
                 Legal, Terms &amp; Privacy Policy
               </button>
+            </div>
+          )}
+
+          {/* ── ACCOUNT ───────────────────────────────────────────── */}
+          {screen==="account"&&(
+            <div style={{padding:"10px 20px 32px"}}>
+              <button onClick={()=>setScreen("boat")}
+                style={{background:"transparent",border:"none",color:C.slate,fontFamily:"'IBM Plex Sans',sans-serif",
+                  fontSize:13,cursor:"pointer",padding:"4px 0 16px"}}>← Back</button>
+              <AccountPanel />
             </div>
           )}
 
@@ -2246,14 +2339,20 @@ export default function GoNoGo() {
               <div style={{fontFamily:"'Archivo',sans-serif",fontWeight:800,fontStretch:"125%",fontSize:20,marginBottom:4}}>
                 Legal &amp; Privacy
               </div>
-              <div style={{fontSize:10,color:C.slate,marginBottom:20}}>Last updated: 16 August 2026</div>
+              <div style={{fontSize:10,color:C.slate,marginBottom:12}}>Last updated: 4 November 2026</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:20}}>
+                {[["Terms of Use","/terms"],["Creator & Referral Terms","/creator-terms"],["Privacy Policy","/privacy.html"]].map(([t,u])=>(
+                  <a key={u} href={`https://gonogoboatapp.com${u}`} target="_blank" rel="noopener noreferrer"
+                    style={{fontSize:12,color:C.green,border:`1px solid ${C.green}55`,borderRadius:999,padding:"6px 12px",textDecoration:"none"}}>{t} ↗</a>
+                ))}
+              </div>
               {[
                 {title:"1. What this app is — and is not",body:"GO / NO-GO provides weather and sea-condition guidance for recreational powerboaters. It is a decision-support tool only. It is not a navigation system, not a certified safety service, and not a substitute for proper seamanship, local knowledge, or professional maritime advice.\n\nEvery verdict is generated automatically using third-party forecast data. No verdict constitutes permission, clearance, or a professional recommendation to launch or remain ashore.\n\nTHE SKIPPER'S JUDGEMENT IS ALWAYS FINAL AND ALWAYS SOLE."},
                 {title:"2. Disclaimer of liability",body:"To the fullest extent permitted by applicable law, GO / NO-GO and its developer(s) accept no liability whatsoever for:\n\n(a) any injury, death, loss, or damage arising from decisions made using this application;\n(b) inaccurate, delayed, or missing forecast data;\n(c) failure or unavailability of the application or any connected data source;\n(d) conditions that differ materially from those forecast.\n\nYou use this application entirely at your own risk.",warn:true},
                 {title:"3. Data sources & third-party providers",body:"Forecast data is obtained from independent third-party providers including Open-Meteo (open-meteo.com) and Copernicus Marine Service. GO / NO-GO has no control over their accuracy or availability. All data is provided \"as received\" without modification."},
                 {title:"4. No warranty",body:"This application is provided \"as is\" without warranty of any kind. Marine forecasts are inherently probabilistic. Conditions can and do change faster than any model can predict."},
-                {title:"5. Privacy policy",body:"GO / NO-GO does not collect, store, transmit, or share any personal data. Your boat profile is stored locally on your device only and is never sent to any server. Location data is used solely to fetch weather forecasts and calculate your distance from your home marina."},
-                {title:"6. Governing law",body:"These terms are governed by the laws of the Republic of Cyprus and, where applicable, European Union law including GDPR."},
+                {title:"5. Privacy",body:"To use GO / NO-GO you create a free account: we store your name, email address, a securely hashed password and the terms you accepted. If you earn commission, bank details are stored encrypted. Your boat profile stays on your device. Your location is used only on your phone to fetch the local forecast and measure your distance from your marina. No advertising and no data sales. Full details are in the Privacy Policy linked above."},
+                {title:"6. Terms of Use",body:"By using the app you accepted our Terms of Use, which include the weather-guidance disclaimer, your responsibilities as skipper, subscriptions and limits on our liability. They are governed by the laws of the Republic of Cyprus and, where applicable, European Union law including GDPR. The full text is linked above."},
               ].map(s=>(
                 <div key={s.title} style={{marginBottom:22}}>
                   <div style={{fontSize:12,fontWeight:600,color:s.warn?C.amber:C.foam,marginBottom:7}}>{s.title}</div>

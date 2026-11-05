@@ -1,13 +1,607 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>app</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GO / NO-GO</title>
+  <meta name="description" content="Marine weather verdict for recreational boaters. Personalised to your boat, your crew, your conditions. Know before you launch.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:        #0a1628;
+      --bg2:       #0f2040;
+      --card:      #122038;
+      --card2:     #1a3050;
+      --text:      #e4ecf5;
+      --muted:     #7a9ab8;
+      --gold:      #f2a21c;
+      --gold-dim:  rgba(242,162,28,0.15);
+      --go:        #26d07c;
+      --go-dim:    rgba(38,208,124,0.12);
+      --warn:      #f2a21c;
+      --warn-dim:  rgba(242,162,28,0.12);
+      --nogo:      #e84855;
+      --nogo-dim:  rgba(232,72,85,0.12);
+      --border:    rgba(242,162,28,0.2);
+      --radius:    4px;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg:    #eef2f8;
+        --bg2:   #dde5f0;
+        --card:  #ffffff;
+        --card2: #f4f7fc;
+        --text:  #0a1628;
+        --muted: #4a6a8a;
+        --border: rgba(10,22,40,0.12);
+        --gold-dim: rgba(242,162,28,0.1);
+        --go-dim:   rgba(38,208,124,0.1);
+        --warn-dim: rgba(242,162,28,0.1);
+        --nogo-dim: rgba(232,72,85,0.1);
+      }
+    }
+    :root[data-theme="light"] {
+      --bg:    #eef2f8;
+      --bg2:   #dde5f0;
+      --card:  #ffffff;
+      --card2: #f4f7fc;
+      --text:  #0a1628;
+      --muted: #4a6a8a;
+      --border: rgba(10,22,40,0.12);
+    }
+
+    /* ── RESET ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden; }
+    img { max-width: 100%; display: block; }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    /* ── TYPE SCALE ─────────────────────────────────────────── */
+    .display { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; line-height: 0.95; letter-spacing: -0.01em; text-wrap: balance; }
+    .label { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+    /* ── NAV ─────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 5vw; height: 60px;
+      background: rgba(10,22,40,0.85); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.4rem; color: var(--text); letter-spacing: 0.02em; }
+    .nav-logo span { color: var(--gold); }
+    .nav-links { display: flex; gap: 2rem; }
+    .nav-links a { font-size: 0.85rem; font-weight: 500; color: var(--muted); transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    @media (max-width: 600px) { .nav-links { display: none; } }
+
+    /* ── HERO ────────────────────────────────────────────────── */
+    .hero {
+      position: relative; min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 100px 5vw 80px; overflow: hidden;
+    }
+    .hero-split {
+      position: absolute; inset: 0; display: flex;
+    }
+    .hero-split-go {
+      flex: 1;
+      background: linear-gradient(135deg, #0a2818 0%, #0a1628 60%);
+    }
+    .hero-split-nogo {
+      flex: 1;
+      background: linear-gradient(225deg, #280a10 0%, #0a1628 60%);
+    }
+    .hero-split-line {
+      position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--gold) 30%, var(--gold) 70%, transparent);
+      opacity: 0.5;
+    }
+    /* wave overlay */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% 100%, rgba(10,22,40,0.9) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 820px; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .hero-eyebrow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--go); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    .hero-title { font-size: clamp(4rem, 14vw, 10rem); color: var(--text); margin-bottom: 0.3em; }
+    .hero-title .go-half { color: var(--go); }
+    .hero-title .nogo-half { color: var(--nogo); }
+    .hero-title .slash { color: var(--gold); }
+    .hero-sub { font-size: clamp(1rem, 2.5vw, 1.3rem); color: var(--muted); max-width: 520px; margin: 0 auto 2.5rem; }
+    .hero-sub strong { color: var(--text); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: var(--gold); color: #0a1628; font-weight: 700; font-size: 0.95rem;
+      padding: 0.85rem 2rem; border-radius: var(--radius); border: none; cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); text-decoration: none; color: #0a1628; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: transparent; color: var(--text); font-weight: 600; font-size: 0.95rem;
+      padding: 0.85rem 2rem; border-radius: var(--radius); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--gold); text-decoration: none; transform: translateY(-1px); }
+    .hero-scroll { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); animation: bounce 2s ease-in-out infinite; }
+    @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+    /* ── VERDICT STRIP ───────────────────────────────────────── */
+    .verdict-strip {
+      display: flex; gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .verdict-tile {
+      flex: 1; padding: 2.5rem 2rem; text-align: center; position: relative;
+      border-right: 1px solid var(--border);
+    }
+    .verdict-tile:last-child { border-right: none; }
+    .verdict-tile.go    { background: var(--go-dim); }
+    .verdict-tile.warn  { background: var(--warn-dim); }
+    .verdict-tile.nogo  { background: var(--nogo-dim); }
+    .verdict-chip {
+      display: inline-block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900;
+      font-size: 1.6rem; letter-spacing: 0.04em; padding: 0.3rem 1rem;
+      border-radius: 2px; margin-bottom: 0.75rem;
+    }
+    .verdict-chip.go   { color: var(--go);   background: rgba(38,208,124,0.15); border: 1px solid rgba(38,208,124,0.4); }
+    .verdict-chip.warn { color: var(--warn);  background: rgba(242,162,28,0.15); border: 1px solid rgba(242,162,28,0.4); }
+    .verdict-chip.nogo { color: var(--nogo);  background: rgba(232,72,85,0.15);  border: 1px solid rgba(232,72,85,0.4); }
+    .verdict-tile p { font-size: 0.9rem; color: var(--muted); max-width: 200px; margin: 0 auto; }
+    @media (max-width: 700px) {
+      .verdict-strip { flex-direction: column; }
+      .verdict-tile { border-right: none; border-bottom: 1px solid var(--border); }
+      .verdict-tile:last-child { border-bottom: none; }
+    }
+
+    /* ── SECTIONS ───────────────────────────────────────────── */
+    section { padding: 6rem 5vw; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-header { margin-bottom: 3.5rem; }
+    .section-header h2 { font-size: clamp(2.2rem, 5vw, 3.5rem); line-height: 1.05; margin-top: 0.5rem; }
+    .section-alt { background: var(--bg2); }
+
+    /* ── HOW IT WORKS ───────────────────────────────────────── */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5px; background: var(--border); }
+    .step { background: var(--card); padding: 2.5rem 2rem; }
+    .step-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 4rem; color: var(--gold); opacity: 0.25; line-height: 1; margin-bottom: 0.5rem; }
+    .step h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .step p { font-size: 0.9rem; color: var(--muted); }
+
+    /* ── PHONES ─────────────────────────────────────────────── */
+    .phones { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+    .phone-frame {
+      width: 220px; border-radius: 28px;
+      border: 2px solid var(--border);
+      background: #060e1c;
+      overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+      transition: transform 0.3s;
+      flex-shrink: 0;
+    }
+    .phone-frame:hover { transform: translateY(-8px); }
+    .phone-notch { height: 28px; background: #060e1c; display: flex; align-items: center; justify-content: center; }
+    .phone-notch-pill { width: 70px; height: 8px; background: #1a2a40; border-radius: 10px; }
+    .phone-screen { background: #0d1f35; min-height: 380px; padding: 0.75rem; font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; }
+    /* screen 1 — today */
+    .ps-header { color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1rem; letter-spacing: 0.04em; margin-bottom: 2px; }
+    .ps-sub { color: var(--muted); font-size: 0.55rem; margin-bottom: 0.75rem; }
+    .ps-verdict { border-radius: 2px; padding: 0.7rem; text-align: center; margin-bottom: 0.6rem; }
+    .ps-verdict.go   { background: rgba(38,208,124,0.15); border: 1px solid rgba(38,208,124,0.35); }
+    .ps-verdict.warn { background: rgba(242,162,28,0.15);  border: 1px solid rgba(242,162,28,0.35); }
+    .ps-verdict.nogo { background: rgba(232,72,85,0.15);   border: 1px solid rgba(232,72,85,0.35); }
+    .ps-verdict-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 0.06em; }
+    .ps-verdict-label.go   { color: var(--go); }
+    .ps-verdict-label.warn { color: var(--warn); }
+    .ps-verdict-label.nogo { color: var(--nogo); }
+    .ps-verdict-desc { color: var(--muted); font-size: 0.52rem; margin-top: 2px; font-family: 'Inter', sans-serif; }
+    .ps-timeline { display: flex; gap: 2px; margin-bottom: 0.6rem; }
+    .ps-bar { flex: 1; height: 18px; border-radius: 1px; }
+    .ps-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .ps-row-label { color: var(--muted); }
+    .ps-row-val { color: var(--text); font-weight: 500; }
+    .ps-tabs { display: flex; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 0.75rem; }
+    .ps-tab { flex: 1; text-align: center; padding: 5px 0; color: var(--muted); font-size: 0.5rem; font-family: 'Inter', sans-serif; }
+    .ps-tab.active { color: var(--gold); border-top: 1px solid var(--gold); margin-top: -1px; }
+
+    /* ── BOAT TYPES ─────────────────────────────────────────── */
+    .boats { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .boat-tag {
+      padding: 0.5rem 1.2rem; border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 0.9rem; font-weight: 500; color: var(--muted);
+      background: var(--card); transition: border-color 0.2s, color 0.2s;
+    }
+    .boat-tag:hover { border-color: var(--gold); color: var(--text); }
+    .boat-tag.highlight { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+    /* ── FEATURES GRID ──────────────────────────────────────── */
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; background: var(--border); }
+    .feature { background: var(--card); padding: 2rem; }
+    .feature-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .feature h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .feature p { font-size: 0.88rem; color: var(--muted); }
+
+    /* ── PRICING ────────────────────────────────────────────── */
+    .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5px; background: var(--border); max-width: 680px; }
+    .pricing-card { background: var(--card); padding: 2.5rem 2rem; }
+    .pricing-card.featured { background: var(--card2); position: relative; }
+    .pricing-badge {
+      display: inline-block; background: var(--gold); color: #0a1628;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 1rem;
+    }
+    .pricing-name { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; }
+    .pricing-price { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 3rem; color: var(--text); line-height: 1; }
+    .pricing-price span { font-size: 1.1rem; color: var(--muted); font-family: 'Inter', sans-serif; font-weight: 400; }
+    .pricing-note { font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem; margin-bottom: 1.5rem; }
+    .pricing-features { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .pricing-features li { font-size: 0.88rem; color: var(--muted); display: flex; align-items: center; gap: 0.5rem; }
+    .pricing-features li::before { content: '✓'; color: var(--go); font-weight: 700; flex-shrink: 0; }
+    @media (max-width: 500px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+    /* ── LEGAL ──────────────────────────────────────────────── */
+    .legal-box {
+      border: 1px solid var(--nogo); background: rgba(232,72,85,0.06);
+      border-radius: var(--radius); padding: 2rem;
+      max-width: 820px;
+    }
+    .legal-box h3 { font-size: 1rem; font-weight: 700; color: var(--nogo); margin-bottom: 0.75rem; }
+    .legal-box p { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.6rem; }
+    .legal-box p:last-child { margin-bottom: 0; }
+    .legal-box strong { color: var(--text); }
+    .privacy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; max-width: 820px; }
+    .privacy-item h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; color: var(--text); }
+    .privacy-item p { font-size: 0.83rem; color: var(--muted); }
+
+    /* ── FOOTER ─────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border); padding: 3rem 5vw;
+      display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: space-between;
+    }
+    .footer-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.2rem; color: var(--text); }
+    .footer-logo span { color: var(--gold); }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+    .footer-links a { font-size: 0.85rem; color: var(--muted); }
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+    footer p { font-size: 0.8rem; color: var(--muted); width: 100%; margin-top: -1rem; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">GO <span>/</span> NO-GO</div>
+  <div class="nav-links">
+    <a href="#how-it-works">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#legal">Safety & Privacy</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-split">
+    <div class="hero-split-go"></div>
+    <div class="hero-split-nogo"></div>
+    <div class="hero-split-line"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <div class="hero-eyebrow-dot"></div>
+      <span class="label">Live marine weather verdict</span>
+    </div>
+    <h1 class="display hero-title">
+      <span class="go-half">GO</span>
+      <span class="slash"> / </span>
+      <span class="nogo-half">NO&#8209;GO</span>
+    </h1>
+    <p class="hero-sub">
+      <strong>Know before you launch.</strong><br>
+      Personalised to your boat, your crew, your conditions — not a generic forecast.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="https://play.google.com/store/apps/details?id=com.gonogo.marine" target="_blank">
+        ▶ &nbsp;Download on Google Play
+      </a>
+      <a class="btn-secondary" href="https://go-no-go-692246708745.europe-west1.run.app" target="_blank">
+        Try the web app →
+      </a>
+    </div>
+  </div>
+  <div class="hero-scroll">
+    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="18" height="26" rx="9" stroke="#7a9ab8" stroke-width="1.5"/>
+      <rect x="8.5" y="5" width="3" height="7" rx="1.5" fill="#7a9ab8"/>
+    </svg>
+  </div>
+</div>
+
+<!-- VERDICT STRIP -->
+<div class="verdict-strip">
+  <div class="verdict-tile go">
+    <div class="verdict-chip go">GOOD TO LAUNCH</div>
+    <p>Conditions are within your boat's safe limits for today's trip and crew.</p>
+  </div>
+  <div class="verdict-tile warn">
+    <div class="verdict-chip warn">THINK TWICE</div>
+    <p>Doable for an experienced hand, but conditions are on the edge for your setup.</p>
+  </div>
+  <div class="verdict-tile nogo">
+    <div class="verdict-chip nogo">STAY ASHORE</div>
+    <p>Conditions exceed what your boat and crew should safely attempt today.</p>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="label">Process</span>
+      <h2 class="display">Three steps, one answer.</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Set your boat once</h3>
+        <p>Tell us your hull type, length, skipper experience, and home marina. GO / NO-GO uses your limits — not a generic coastal forecast.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Check the verdict</h3>
+        <p>Live wind, gusts, wave height, and wave period are pulled for your exact location. The worst factor decides the verdict — not an average.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Go with confidence</h3>
+        <p>See the 10-day plan, hourly breakdown, and exactly <em>why</em> the verdict is what it is. Then you decide — the skipper always calls it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APP SCREENS -->
+<section class="section-alt">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="label">The app</span>
+      <h2 class="display">Every screen earns its place.</h2>
+    </div>
+    <div class="phones">
+      <!-- Screen 1: Today verdict -->
+      <div class="phone-frame">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="ps-header">GO / NO-GO</div>
+          <div class="ps-sub">Latchi Marina · Today</div>
+          <div class="ps-verdict warn">
+            <div class="ps-verdict-label warn">THINK TWICE</div>
+            <div class="ps-verdict-desc">Doable for an experienced hand, but conditions are on the edge for your setup today.</div>
+          </div>
+          <div style="margin-bottom:0.4rem"><span class="label" style="font-size:0.48rem">YOUR DAY ON THE WATER</span></div>
+          <div class="ps-timeline">
+            <div class="ps-bar" style="background:var(--go);opacity:0.7"></div>
+            <div class="ps-bar" style="background:var(--go);opacity:0.7"></div>
+            <div class="ps-bar" style="background:var(--go);opacity:0.7"></div>
+            <div class="ps-bar" style="background:var(--warn);opacity:0.9"></div>
+            <div class="ps-bar" style="background:var(--warn);opacity:0.9"></div>
+            <div class="ps-bar" style="background:var(--warn);opacity:0.9"></div>
+            <div class="ps-bar" style="background:var(--nogo);opacity:0.8"></div>
+            <div class="ps-bar" style="background:var(--nogo);opacity:0.8"></div>
+          </div>
+          <div class="ps-row"><span class="ps-row-label">Wind</span><span class="ps-row-val">5 kn</span></div>
+          <div class="ps-row"><span class="ps-row-label">Gusts</span><span class="ps-row-val" style="color:var(--warn)">11 kn</span></div>
+          <div class="ps-row"><span class="ps-row-label">Wave height</span><span class="ps-row-val">1.3 ft</span></div>
+          <div class="ps-row"><span class="ps-row-label">Wave period</span><span class="ps-row-val" style="color:var(--warn)">4 s</span></div>
+          <div class="ps-tabs">
+            <div class="ps-tab active">Today</div>
+            <div class="ps-tab">Plan</div>
+            <div class="ps-tab">Why?</div>
+            <div class="ps-tab">My boat</div>
+          </div>
+        </div>
+      </div>
+      <!-- Screen 2: 10-day plan -->
+      <div class="phone-frame" style="margin-top:2rem">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="ps-header">GO / NO-GO</div>
+          <div class="ps-sub">Next 10 days · Latchi</div>
+          <div style="margin-bottom:0.5rem"><span style="color:var(--muted);font-size:0.55rem;font-family:Inter,sans-serif">knots · feet · for your bowrider</span></div>
+          <div class="ps-row"><span class="ps-row-label">Fri 21</span><span style="display:flex;gap:3px"><span style="width:32px;height:10px;background:var(--warn);border-radius:1px;display:inline-block"></span><span style="width:28px;height:10px;background:var(--warn);border-radius:1px;display:inline-block"></span></span></div>
+          <div class="ps-row"><span class="ps-row-label">Sat 22</span><span style="display:flex;gap:3px"><span style="width:36px;height:10px;background:var(--warn);border-radius:1px;display:inline-block"></span><span style="width:40px;height:10px;background:var(--nogo);border-radius:1px;display:inline-block"></span></span></div>
+          <div class="ps-row"><span class="ps-row-label">Sun 23</span><span style="display:flex;gap:3px"><span style="width:38px;height:10px;background:var(--nogo);border-radius:1px;display:inline-block"></span><span style="width:38px;height:10px;background:var(--nogo);border-radius:1px;display:inline-block"></span></span></div>
+          <div class="ps-row"><span class="ps-row-label">Mon 24</span><span style="display:flex;gap:3px"><span style="width:30px;height:10px;background:var(--warn);border-radius:1px;display:inline-block"></span><span style="width:32px;height:10px;background:var(--warn);border-radius:1px;display:inline-block"></span></span></div>
+          <div class="ps-row" style="border-color:rgba(38,208,124,0.3)"><span class="ps-row-label" style="color:var(--go)">Fri 28 ★</span><span style="display:flex;gap:3px"><span style="width:44px;height:10px;background:var(--go);border-radius:1px;display:inline-block"></span><span style="width:44px;height:10px;background:var(--go);border-radius:1px;display:inline-block"></span></span></div>
+          <div style="margin-top:0.75rem;padding:0.5rem;background:var(--go-dim);border:1px solid rgba(38,208,124,0.25);border-radius:2px">
+            <div style="color:var(--go);font-size:0.55rem;font-family:Inter,sans-serif;font-weight:600">Best window: Fri 28 — lowest wind and wave in the next 10 days for your setup.</div>
+          </div>
+          <div class="ps-tabs">
+            <div class="ps-tab">Today</div>
+            <div class="ps-tab active">Plan</div>
+            <div class="ps-tab">Why?</div>
+            <div class="ps-tab">My boat</div>
+          </div>
+        </div>
+      </div>
+      <!-- Screen 3: Why -->
+      <div class="phone-frame">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="ps-header">GO / NO-GO</div>
+          <div style="color:var(--warn);font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1rem;margin-bottom:4px">Why amber at 18:00</div>
+          <div style="color:var(--muted);font-size:0.52rem;font-family:Inter,sans-serif;margin-bottom:0.75rem">Verdicts compare each hour's forecast against limits set by your boat, your crew and your plan.</div>
+          <div class="ps-row"><span class="ps-row-label">Wind</span><span class="ps-row-val">5 kn</span></div>
+          <div class="ps-row"><span class="ps-row-label">Wind direction</span><span class="ps-row-val">W (260°)</span></div>
+          <div class="ps-row"><span class="ps-row-label">Gusts</span><span class="ps-row-val" style="color:var(--warn)">11 kn ↑</span></div>
+          <div class="ps-row"><span class="ps-row-label">Wave height</span><span class="ps-row-val">1.3 ft</span></div>
+          <div class="ps-row"><span class="ps-row-label">Wave period</span><span class="ps-row-val" style="color:var(--warn)">4 s ↑</span></div>
+          <div class="ps-row"><span class="ps-row-label">Visibility</span><span class="ps-row-val">22.7 nm</span></div>
+          <div style="margin-top:0.75rem;padding:0.5rem;background:rgba(242,162,28,0.08);border:1px solid rgba(242,162,28,0.25);border-radius:2px">
+            <div style="color:var(--warn);font-size:0.52rem;font-family:Inter,sans-serif;font-weight:600;margin-bottom:2px">Reading the sea:</div>
+            <div style="color:var(--muted);font-size:0.5rem;font-family:Inter,sans-serif">Short wave periods mean tight, steep chop — far rougher than the height alone suggests.</div>
+          </div>
+          <div class="ps-tabs">
+            <div class="ps-tab">Today</div>
+            <div class="ps-tab">Plan</div>
+            <div class="ps-tab active">Why?</div>
+            <div class="ps-tab">My boat</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="label">What's inside</span>
+      <h2 class="display">Built for real skippers.</h2>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🎯</div>
+        <h3>Personalised limits</h3>
+        <p>A 4m RIB and a 9m cabin cruiser get different answers to the same sea. Limits scale with your hull type, length, and experience.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌊</div>
+        <h3>Wave period as a safety metric</h3>
+        <p>Most apps show height. We also show wave period — a 4-second chop is far rougher than a 1.5 ft height alone suggests.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📅</div>
+        <h3>10-day planning</h3>
+        <p>See morning and afternoon verdicts for the next 10 days. The app finds your best window automatically.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <h3>Multiple marinas</h3>
+        <p>Set a home marina and check conditions at nearby launch sites. Drag to reorder, tap to select.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h3>No data collected</h3>
+        <p>Your boat profile lives on your device only. No account required. No tracking. No advertising.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📡</div>
+        <h3>Works offline</h3>
+        <p>Last forecast is cached locally. Even with no signal, your most recent data is available.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:3rem">
+      <span class="label" style="display:block;margin-bottom:1rem">Supported boat types</span>
+      <div class="boats">
+        <div class="boat-tag highlight">RIB</div>
+        <div class="boat-tag highlight">Bowrider</div>
+        <div class="boat-tag">Cabin Cruiser</div>
+        <div class="boat-tag">PWC / Jet Ski</div>
+        <div class="boat-tag">Power Cat</div>
+        <div class="boat-tag">Sailboat</div>
+        <div class="boat-tag">Sailing Cat</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="section-alt">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="label">Skipper Plan</span>
+      <h2 class="display">Less than a marina coffee.</h2>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Monthly</div>
+        <div class="pricing-price">$1.99 <span>/ mo</span></div>
+        <div class="pricing-note">Cancel anytime</div>
+        <ul class="pricing-features">
+          <li>Unlimited live forecasts</li>
+          <li>10-day planning view</li>
+          <li>Wave period analysis</li>
+          <li>All boat types</li>
+          <li>Offline cache</li>
+        </ul>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Best Value</div>
+        <div class="pricing-name">Annual</div>
+        <div class="pricing-price">$19 <span>/ yr</span></div>
+        <div class="pricing-note">$1.58 / mo — save 21%</div>
+        <ul class="pricing-features">
+          <li>Everything in Monthly</li>
+          <li>Priority support</li>
+          <li>Early feature access</li>
+          <li>Continuous swell chop analysis</li>
+          <li>Live return window alerts</li>
+        </ul>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem;font-size:0.8rem;color:var(--muted)">Standard in-app billing through Google Play. Cancel anytime. No hidden fees.</p>
+  </div>
+</section>
+
+<!-- LEGAL / SAFETY / PRIVACY -->
+<section id="legal">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="label">Safety, legal & privacy</span>
+      <h2 class="display">Read this before you launch.</h2>
+    </div>
+
+    <div class="legal-box">
+      <h3>⚠ Important safety disclaimer</h3>
+      <p>GO / NO-GO is a <strong>decision-support tool only</strong>. It is not a navigation system, not a certified safety service, and not a substitute for proper seamanship, local knowledge, or professional maritime advice.</p>
+      <p>Every verdict is generated automatically from third-party forecast data. No verdict constitutes permission, clearance, or a professional recommendation to launch or remain ashore.</p>
+      <p><strong>THE SKIPPER'S JUDGEMENT IS ALWAYS FINAL AND ALWAYS SOLE.</strong></p>
+      <p>To the fullest extent permitted by applicable law, GO / NO-GO and its developer(s) accept no liability whatsoever for any injury, death, loss, or damage arising from decisions made using this application; inaccurate, delayed, or missing forecast data; or conditions that differ from those forecast. <strong>You use this application entirely at your own risk.</strong></p>
+    </div>
+
+    <div class="privacy-grid">
+      <div class="privacy-item">
+        <h4>🔒 No personal data collected</h4>
+        <p>Your boat profile is stored locally on your device only and is never sent to any server. No analytics, no tracking, no advertising.</p>
+      </div>
+      <div class="privacy-item">
+        <h4>📡 Data sources</h4>
+        <p>Forecast data from Open-Meteo and Copernicus Marine Service. Provided "as received" — GO / NO-GO has no control over their accuracy or availability.</p>
+      </div>
+      <div class="privacy-item">
+        <h4>⚖ Governing law</h4>
+        <p>These terms are governed by the laws of the Republic of Cyprus and, where applicable, European Union law including GDPR.</p>
+      </div>
+      <div class="privacy-item">
+        <h4>📄 Full policy</h4>
+        <p>Read the complete <a href="./privacy.html">Privacy Policy &amp; Legal Terms</a> — including full disclaimer of liability and no-warranty clause.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">GO <span>/</span> NO-GO</div>
+  <div class="footer-links">
+    <a href="./privacy.html">Privacy Policy</a>
+    <a href="https://go-no-go-692246708745.europe-west1.run.app" target="_blank">Web App</a>
+    <a href="mailto:gonogoboating@gmail.com">Contact</a>
+  </div>
+  <p>© 2026 GO / NO-GO. Marine weather guidance for recreational boaters. Cyprus.</p>
+</footer>
+
+</body>
 </html>

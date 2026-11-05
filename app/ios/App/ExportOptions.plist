@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      How the archive is turned into an .ipa for TestFlight and the App Store.
+
+      Signing is manual on purpose. Automatic signing resolves to an iOS App
+      DEVELOPMENT profile (Capacitor's template sets CODE_SIGN_IDENTITY to
+      "iPhone Developer") and then fails with "your team has no devices" —
+      true, and irrelevant to an App Store build.
+
+      The distribution certificate is imported from a secret and the profile
+      is created through the App Store Connect API before the build, so both
+      are known quantities by the time xcodebuild runs.
+    -->
+    <key>method</key>
+    <string>app-store-connect</string>
+
+    <key>teamID</key>
+    <string>H5JL2T3Y4X</string>
+
+    <key>signingStyle</key>
+    <string>manual</string>
+
+    <!--
+      Named explicitly so the export cannot pick a different identity or
+      profile from the one the archive was signed with. The profile is created
+      by the workflow before the build; this name must match it exactly.
+    -->
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.gonogo.marine</key>
+        <string>GoNoGo iOS App Store</string>
+    </dict>
+
+    <!-- Crash reports are unreadable without these. -->
+    <key>uploadSymbols</key>
+    <true/>
+
+    <!-- Let Apple thin the binary per device. -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <key>destination</key>
+    <string>export</string>
+</dict>
+</plist>
