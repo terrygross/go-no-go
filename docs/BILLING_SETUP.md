@@ -90,9 +90,24 @@ RevenueCat is free below $2,500/month of tracked revenue.
 
 ## 2 · Google Play  (~30 min + review, Terry)
 
+> **Order matters here, and not in the obvious way.** Checked in Play Console on
+> 5 Nov 2026: the Subscriptions page says *"Your app doesn't have any
+> subscriptions yet"* and offers only **Upload a new APK**. There is no "create
+> subscription" button at all. Play will not let a subscription be created until
+> a build **containing the billing library** has been uploaded, and v1.4 has no
+> billing library — that is the very bug v1.5 fixes.
+>
+> So the **v1.5 build must be uploaded first**, and that needs the Android
+> upload-key password. Until that password surfaces, nothing else on the Play
+> side can move. It is the first domino, not a later step.
+
+0. **Build and upload v1.5.** Put the upload-key password in
+   `app/android/keystore.properties`, then Claude can build and upload it to the
+   internal testing track. That alone unlocks everything below.
 1. **Payments profile.** Play Console → Setup → Payments profile. Until this
    exists Play cannot sell anything. Needs your bank and tax details.
-2. **Create the subscription.** Monetise → Products → Subscriptions → Create:
+2. **Create the subscription** (only possible after step 0). Monetise → Products
+   → Subscriptions → Create:
    - Product ID: **`premium`** (exactly — the API expects this string)
    - Name: `GO / NO-GO Premium`
 3. **Add two base plans** on that subscription, both auto-renewing:
@@ -107,28 +122,45 @@ RevenueCat is free below $2,500/month of tracked revenue.
 
 ## 3 · App Store  (~45 min + agreement wait, Terry)
 
-1. **Paid Applications Agreement.** App Store Connect → Business. Sign it, then
-   complete **banking** and **tax** details. **This is the hard blocker: no
-   subscription product can even be created until it is active**, and the
-   banking/tax steps are the slowest part of the whole list. Do this first.
-2. **Small Business Program** — see the warning at the top.
-3. **Create the subscription group**, e.g. `Premium`, then two subscriptions in
-   it:
-   - Product ID **`premium_monthly`** — $2.99, 1 month
-   - Product ID **`premium_annual`** — $19.99, 1 year
-   Keep the word "annual" in the yearly one; the API reads the plan from the id.
-   Each needs a **display name**, a **description**, and a **review screenshot**
-   or it cannot be submitted.
+1. ~~**Paid Applications Agreement.**~~ **Done** — verified Active on 5 Nov 2026
+   (3 Nov 2026 – 24 Oct 2027), along with the bank account and the W-8BEN. It
+   was already in place for What's Inside, and agreements are per developer
+   account, not per app. iOS in-app purchase was never actually blocked.
+   ⚠️ One row on that page still says **Missing Info**: *Model Reporting Rules
+   for Digital Platforms* (the OECD/DAC7 seller report). Left unfilled it can
+   hold up payouts. Click **Add Info** and complete it.
+2. **Small Business Program** — see the warning at the top. Still not enrolled.
+3. ~~**Create the subscription group and the two subscriptions.**~~ **Done on
+   5 Nov 2026.** Group **Premium** (id `22550489`), group display name
+   `GO / NO-GO Premium`, English (U.K.):
+   - **Premium Annual** — product id **`gonogo_premium_annual`**, Apple id
+     6831333107, 1 year, $19.99, all 175 countries
+   - **Premium Monthly** — product id **`gonogo_premium_monthly`**, Apple id
+     6831334219, 1 month, $2.99, all 175 countries
+
+   The `gonogo_` prefix is deliberate: **App Store product ids are unique across
+   the entire developer account**, and plain `premium_annual` was already taken
+   by What's Inside. The API needs no change — `planFromPlayProduct()` reads the
+   plan from the id by regex, so keep the word "annual" in the yearly one or
+   every iOS subscriber is recorded as monthly and every commission figure
+   derived from them is wrong.
+
+   Still outstanding on each product: a **review screenshot**, which Apple
+   requires before the subscription can be submitted. It has to show the real
+   paywall, so it comes from the v1.5 build once that is on TestFlight.
 4. **In-app purchase API key for RevenueCat.** Users and Access → Integrations →
    In-App Purchase → generate a key, and give the `.p8` to RevenueCat.
-5. **Attach both subscriptions to the version you submit.** On the 1.5 version
-   page, add them under In-App Purchases. A build with a paywall and no
-   submitted products is a guaranteed rejection.
+5. **Attach both subscriptions to the version you submit.** App Store Connect
+   says it outright on the product page: *"Your first auto-renewable
+   subscription must be submitted with a new app version."* So the two products
+   and the 1.5 build go to review together — add them under In-App Purchases on
+   the 1.5 version page. A build with a paywall and no submitted products is a
+   guaranteed rejection.
 
 ## 4 · RevenueCat wiring  (~15 min, Terry)
 
 1. **Products** — import all four: `premium:monthly`, `premium:annual` (Play)
-   and `premium_monthly`, `premium_annual` (App Store).
+   and `gonogo_premium_monthly`, `gonogo_premium_annual` (App Store).
 2. **Entitlement** — create one with identifier exactly **`premium`** and attach
    all four products. The app and the API both look for this exact string.
 3. **Offering** — create one (`default` is fine), add a **Monthly** and an
