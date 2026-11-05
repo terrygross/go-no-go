@@ -62,3 +62,11 @@ Barnacle Bill 2.0 (CYBER-PIRATE)/
 # OS
 .DS_Store
 Thumbs.db
+
+# Apple reviewer demo credentials and the SQL that sets them. These now live
+# in C:\Users\teren\Documents\ios-signing\, outside the repo, with the signing
+# key and the p12 password. The rules stay as a tripwire: anything that writes
+# them back into the project must not be committable, because this repo is
+# PUBLIC.
+apple-review-account.txt
+apple-review-account.sql
