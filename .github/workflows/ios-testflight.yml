@@ -53,9 +53,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22, not 20: the Capacitor 8 CLI hard-fails on anything older with
+      # "[fatal] The Capacitor CLI requires NodeJS >=22.0.0", and it only says
+      # so at `cap sync` time — after the install and the web build have both
+      # happily passed on the wrong version.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # Two npm projects: the Vite app at the root, the Capacitor shell in app/.
       - name: Install dependencies
