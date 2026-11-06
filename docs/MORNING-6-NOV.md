@@ -1,191 +1,161 @@
-# Friday morning, 6 November — what's done, and what needs you
+# Friday 6 November — where GO / NO-GO actually stands
 
-Short version: **the App Store side is ready to submit and needs about an hour
-of your clicking to get there. The Play side cannot ship today**, and that is
-worth reading before anything else.
+Updated after the morning's work. The overnight version of this file is
+superseded; read this one.
 
----
+**iOS v1.5 is built, signed and sitting in TestFlight.** It is the first build
+of this app that can take a payment. What is left on Apple is console clicking
+that needs your Apple ID, and App Store Connect has signed itself out.
 
-## The one piece of bad news, first
-
-Android v1.5 cannot go up today, and no amount of work from me changes it.
-
-Uploading anything to Play needs the **upload key**, and that keystore's
-password is lost — it is not the What's Inside one, it is not in git, and it is
-not in any config file anywhere on this PC (I searched Documents, Desktop,
-`.gradle` and every `keystore.properties` on the machine). Without an upload,
-Play will not even let a subscription be created: the Subscriptions page still
-offers one button, **Upload a new APK**, and no way to add a product. I checked
-again tonight.
-
-So Android revenue depends on one of these two, in this order:
-
-1. **Find the password.** Open Android Studio → **Build → Generate Signed App
-   Bundle / APK**. If it was ever built from there, the keystore path and
-   password are remembered in the dialog. Five minutes, and if it works
-   everything below unblocks immediately.
-2. **Reset the upload key.** Play Console → Test and release → **Protected with
-   Play → App signing → Upload key → Request reset** (the button is there, I
-   left the page open). Google takes **1–2 business days**, so this means
-   Android money starts Monday or Tuesday, not today. You would register
-   `Desktop\gonogo-keystore-GEMINI-NEW-5nov.jks`, whose password you do know,
-   as the new upload key.
-
-Either way the live v1.3 listing stays up and keeps working. Nothing breaks.
-
-**Do not do an Android release today expecting money from it.** iOS is the
-realistic Friday launch.
+**Android still cannot ship**, for exactly one reason: the upload keystore
+password. Everything else on that side is built and waiting.
 
 ---
 
-## What I finished while you slept
+## Done this morning
 
-**App Store Connect — subscriptions are fully built.** Group **Premium**
-(`22550489`), display name `GO / NO-GO Premium`:
+**The iOS build is fixed and uploaded.** Run #8 succeeded in 7m 09s:
 
-| | Product ID | Apple ID | Price | Countries |
-|---|---|---|---|---|
-| Premium Yearly | `gonogo_premium_annual` | 6831333107 | $19.99 | all 175 |
-| Premium Monthly | `gonogo_premium_monthly` | 6831334219 | $2.99 | all 175 |
+| | |
+|---|---|
+| Version | 1.5, build 8 |
+| Bundle | `com.gonogo.marine` |
+| Signed | Apple Distribution, team H5JL2T3Y4X |
+| .ipa | 15 MB, exported and accepted by `altool` |
 
-Apple converted every other currency itself (£, €, AUD and the rest). Both have
-display names and descriptions in English (U.K.). Both say *Prepare for
-Submission*, which is correct — Apple will not take them until they go up with
-the 1.5 build.
+Build #7 had died 46 seconds in with:
 
-The `gonogo_` prefix is not a typo. App Store product ids are unique across
-your **whole developer account**, and What's Inside already owns
-`premium_annual`. The API doesn't care: it reads the plan from the id by
-pattern, so `gonogo_premium_annual` is still recognised as the yearly one.
+> `RevenueCat_RevenueCat does not support provisioning profiles, but provisioning profile 4f3c50f0-… has been manually specified`
 
-**Code.** Two commits, pushed to GitHub:
+Build settings handed to `xcodebuild` on the command line apply to **every**
+target in the build, and since Capacitor 8 moved to Swift Package Manager that
+includes the dependencies. RevenueCat was the first package target that cared,
+and it refuses a profile outright — rightly, because a package has nothing of
+its own to sign. The four signing settings now go into the App target's own
+build configurations instead, which is where a local Xcode build keeps them.
+Commit `8374a0b`.
 
-- The in-app legal screen claimed your location was used *"only on your phone"*.
-  That was untrue — the coordinates go to Open-Meteo — and it is the one screen
-  an App Review reader actually reads. Fixed, and it now also says that Apple
-  and Google take the payment.
-- `npm run build:android` refuses to build without the RevenueCat key. **This
-  is the bug that cost you v1.4**: a missing key is not an error anywhere, the
-  app just quietly decides purchases are unavailable and uploads looking fine.
-  The iOS workflow already had this guard; Android now does too.
+Apple takes 5–15 minutes to process a build. By the time you read this it
+should be showing in TestFlight as **1.5 (8)**.
 
-The Android project itself is otherwise ready — RevenueCat plugin registered,
-`versionCode 6`, `versionName 1.5`, fresh web assets synced. It only waits on
-the key.
+The two warnings on the run are GitHub's own — Node 20 deprecation and macOS
+runner capacity. Neither touches the app.
 
 ---
 
 ## Your list, in the order that gets money fastest
 
-### 1 · RevenueCat account — 15 min, blocks everything
+### 1 · Sign in to App Store Connect — then four jobs there
 
-I can't create accounts, so this one has to be you, and nothing else can start
-until it is done.
+<https://appstoreconnect.apple.com> has logged out and wants your password and
+2FA code. I cannot enter either. Once you are in:
 
-<https://app.revenuecat.com> → project `GO NO-GO` → add two apps, **App Store**
-and **Play Store**, both with bundle/package id `com.gonogo.marine`.
+1. **Review screenshot on each subscription.** Install 1.5 (8) from TestFlight,
+   open the paywall, screenshot it, and upload the same image to both
+   `gonogo_premium_monthly` and `gonogo_premium_annual`. Apple will not accept
+   a subscription without one.
+2. **Attach both subscriptions to the 1.5 version** under *In-App Purchases* on
+   the version page, and set **Build** to 1.5 (8) — it currently still points at
+   build 6, the old 1.4. A paywall with no submitted products is a guaranteed
+   rejection.
+3. **Model Reporting Rules for Digital Platforms** — the Business page says
+   *Missing Info*. It is the OECD/DAC7 seller report and it can hold your
+   payouts. Click **Add Info**.
+4. **App Store Small Business Program** — not enrolled, so Apple takes **30%**
+   instead of 15%. Free, you qualify comfortably, and the commission maths in
+   the API assumes 15%. Catch: approval starts on the **1st of the following
+   month**, so enrolling today fixes December, not November. November's iOS
+   volume will be tiny; enrol now and treat the gap as noise.
 
-From **Project settings → API keys**, collect three values:
+Then **Submit for Review**.
 
-- public Apple key, starts `appl_`
-- public Play key, starts `goog_`
-- one secret key, starts `sk_` — server only, never in the app
+### 2 · The Android keystore password — unblocks all Play revenue
 
-### 2 · Wire RevenueCat up — 20 min
+Android Studio → **Build → Generate Signed App Bundle / APK**. The dialog has
+`C:\Users\teren\Desktop\gonogo-keystore.jks`, alias `gonogo`, and
+*Remember passwords* ticked, so the password should be sitting there filled in.
 
-- **In-app purchase key.** App Store Connect → Users and Access → Integrations
-  → In-App Purchase → generate, and give the `.p8` to RevenueCat.
-- **Products:** import `gonogo_premium_monthly` and `gonogo_premium_annual`.
-- **Entitlement:** identifier exactly **`premium`**, both products attached.
-  The app and the API both look for that exact string.
-- **Offering:** one offering with a Monthly and an Annual package, marked
-  **Current**. If nothing is Current the paywall will say no plans came back.
-- **Webhook:** `https://api.gonogoboatapp.com/webhooks/revenuecat`, with an
-  Authorization header set to a long random string you invent. Keep it.
+Put it in `app/android/keystore.properties` (gitignored, already created, the
+two password lines are wrong):
 
-### 3 · Secrets — 5 min
-
-```bash
-cd gonogo-api && npx wrangler secret put REVENUECAT_SECRET_API_KEY
 ```
+storePassword=<the one from the dialog>
+keyPassword=<same, unless you set a separate key password>
+```
+
+The build is otherwise finished — RevenueCat plugin registered, versionCode 6,
+versionName 1.5, billing key baked in, compiles all the way through to the
+signing step, which is the only thing that fails. Once the password is in,
+`./gradlew bundleRelease` produces the AAB and I can take it from there.
+
+Uploading it is what finally lets Play create the subscriptions: the
+Subscriptions page still offers only *Upload a new APK* and no way to add a
+product until a build containing the billing library exists.
+
+If the dialog turns out to be empty, the fallback is Play Console → App signing
+→ Upload key → **Request reset**, which takes Google 1–2 business days.
+
+### 3 · RevenueCat — three things need you
+
+The project is otherwise fully built: **GO NO-GO** (`07c24543`), App Store and
+Play apps on `com.gonogo.marine`, products `gonogo_premium_annual` and
+`gonogo_premium_monthly`, entitlement `premium` with both attached, offering
+`default` marked **Current** with `$rc_annual` and `$rc_monthly` packages.
+
+- **Webhook.** The form is open and filled in your browser except one field:
+  the **Authorization header value**. Invent a long random string, paste it in,
+  click *Add webhook*, and keep the string — it is also the next bullet.
+- **Secrets.** From `gonogo-api`:
 
 ```bash
 cd gonogo-api && npx wrangler secret put REVENUECAT_WEBHOOK_SECRET
 ```
 
-(the second is the random string from the webhook — neither needs a deploy)
+```bash
+cd gonogo-api && npx wrangler secret put REVENUECAT_SECRET_API_KEY
+```
 
-Then on GitHub → Settings → Secrets and variables → Actions, add
-**`REVENUECAT_IOS_KEY`** = the `appl_…` key.
+  (the second is a RevenueCat `sk_` key from Project settings → API keys —
+  create one if there isn't one. Neither needs a deploy.)
+- **Play service account JSON.** The Play app in RevenueCat cannot validate an
+  Android purchase until a Google Cloud service account JSON is uploaded to it.
+  Do this after the AAB is up.
 
-And create `.env.local` in the repo root (gitignored) with both public keys —
-the format is in `docs/BILLING_SETUP.md`.
+Purchases themselves work without the webhook — the app calls
+`/subscriptions/native/sync` and the server grants Premium. The webhook is what
+keeps renewals and cancellations right afterwards, so it matters, but it is not
+blocking a launch today.
 
-### 4 · Deploy the API — 2 min
-
-I changed `TERMS_VERSION` and `CREATOR_TERMS_VERSION` to `2026-11-05` to match
-the rewritten terms, and corrected some now-wrong comments. It needs your
-deploy to take effect:
+### 4 · The two deploys only you can run
 
 ```bash
 cd gonogo-api && npx wrangler deploy
 ```
 
-The website also needs redeploying for the new terms pages:
-
 ```bash
 cd website && npx wrangler pages deploy pub --project-name=gonogo-website --commit-dirty=true
 ```
 
-### 5 · Build and submit iOS — then you are live
+The first picks up `TERMS_VERSION` / `CREATOR_TERMS_VERSION` = `2026-11-05`,
+matching the rewritten terms. The second publishes the new terms pages.
 
-GitHub → Actions → **iOS TestFlight** → Run workflow. Version defaults to 1.5.
-It will fail fast if step 3 was missed, which is deliberate.
+### 5 · Play housekeeping, whenever
 
-I renamed the App Store version record from 1.4 to **1.5** so the new build
-attaches to it. It was never submitted, so nothing was lost by renaming it —
-and Apple would not have let you create a second record while an unreleased one
-was sitting there. Build 6 (the old 1.4) is still shown under Build on that
-page; swap it for the new one when it appears.
-
-When the build lands in TestFlight:
-
-- Install it, open the paywall, **screenshot it**. Apple requires a review
-  screenshot on each subscription before it can be submitted — upload the same
-  one to both products.
-- On the 1.5 version page, add both subscriptions under **In-App Purchases**,
-  then submit. A paywall with no submitted products is a guaranteed rejection.
-
-### 6 · Two Apple money items — don't skip these
-
-- **Model Reporting Rules for Digital Platforms** says *Missing Info* on the
-  Business page. It is the OECD/DAC7 seller report, and left unfilled it can
-  hold your payouts. Click **Add Info**.
-- **App Store Small Business Program.** Not enrolled. Apple takes **30%**
-  instead of 15%, and the commission maths in the API assumes 15%, so every iOS
-  referral would overpay the referrer by about 21%. Enrolling is free and you
-  qualify comfortably. One catch: **approval starts on the 1st of the following
-  month**, so enrolling today fixes December, not November. November's iOS
-  volume will be tiny, so the cleanest answer is enrol now and treat the gap as
-  noise — but if you would rather be exact, the per-store fee change is about
-  an hour's work plus a deploy and I can do it next session.
-
-### 7 · Play housekeeping, whenever
-
-- **Declare your trader status** (deadline 1 Feb 2027, banner at the top of
-  every Play page).
-- Developer name is still **tezz777able**. Change it before marketing.
+- **Declare your trader status** — deadline 1 Feb 2027, EU removal otherwise.
+- Developer name is still **tezz777able**. Change it before any marketing.
 - **Rotate** the two Cloudflare API tokens, the Neon password and the mail
-  password in `gonogo-website-deploy.txt`. They are gitignored now, but they
-  were exposed.
+  password in `gonogo-website-deploy.txt`. Gitignored now, but they were exposed.
 
 ---
 
-## What I deliberately did not do
+## Still deliberately not done
 
-- **The in-app "Report an issue" feature.** You asked for it in v1.5. Adding an
-  untested feature with a new API endpoint the night before a launch is how
-  launches break. It is a clean first job after you are selling.
-- **Clicked Request reset on the upload key, or Add Info on the tax form.**
-  Both are your identity and your signing keys, not mine to commit you to.
-- **The per-store platform fee.** Reasoning in step 6.
+- **In-app "Report an issue".** First job after you are selling, not the
+  morning of a launch.
+- **Per-store platform fee.** `PLATFORM_FEE = 0.15` is the Play rate and is
+  applied to everyone. If you enrol in the Small Business Program it becomes
+  correct for Apple too from December. Roughly an hour plus a deploy to make it
+  per-store, and the SQL aggregations that count users by plan have to change
+  with it.
+- **Request reset on the upload key, and Add Info on the tax form.** Your
+  signing identity and your tax identity — yours to click, not mine.
