@@ -1,11 +1,9 @@
-# Friday 6 November — where GO / NO-GO actually stands
+# Friday 6 November — where GO / NO-GO stands
 
-Updated after the morning's work. The overnight version of this file is
-superseded; read this one.
-
-**iOS v1.5 is built, signed and sitting in TestFlight.** It is the first build
-of this app that can take a payment. What is left on Apple is console clicking
-that needs your Apple ID, and App Store Connect has signed itself out.
+**iOS 1.5 is submitted to Apple.** Version 1.5 (build 10), both subscriptions,
+four items in one submission, now *Waiting for Review*. Release is set to
+**automatic**, so it goes on sale the moment Apple approves it. Apple say up to
+48 hours; it is usually faster, and you get an email.
 
 **Android still cannot ship**, for exactly one reason: the upload keystore
 password. Everything else on that side is built and waiting.
@@ -45,29 +43,28 @@ runner capacity. Neither touches the app.
 
 ## Your list, in the order that gets money fastest
 
-### 1 · Sign in to App Store Connect — then four jobs there
+### 1 · Three Apple items that are still yours
 
-<https://appstoreconnect.apple.com> has logged out and wants your password and
-2FA code. I cannot enter either. Once you are in:
+The submission is in; these are not blocking it, but two of them cost you money
+and one is a promise you made to Apple this afternoon.
 
-1. **Review screenshot on each subscription.** Install 1.5 (8) from TestFlight,
-   open the paywall, screenshot it, and upload the same image to both
-   `gonogo_premium_monthly` and `gonogo_premium_annual`. Apple will not accept
-   a subscription without one.
-2. **Attach both subscriptions to the 1.5 version** under *In-App Purchases* on
-   the version page, and set **Build** to 1.5 (8) — it currently still points at
-   build 6, the old 1.4. A paywall with no submitted products is a guaranteed
-   rejection.
-3. **Model Reporting Rules for Digital Platforms** — the Business page says
-   *Missing Info*. It is the OECD/DAC7 seller report and it can hold your
+1. **Buy an Open-Meteo plan.** This is the urgent one. Their free API is
+   licensed for non-commercial use only, and their terms name *"apps that have
+   subscriptions"* as commercial — so the day 1.5 goes on sale, the forecast
+   feed is out of licence. You answered Apple's Content Rights question *"yes,
+   and I have the necessary rights"* on the basis that you would fix this, so
+   it is now a commitment, not a nicety. Sign up at dashboard.open-meteo.com;
+   **Standard** (1M calls/month) covers both the forecast and marine endpoints
+   and is the right tier until you are past a few thousand daily users. Send me
+   the key and I will move the app to `customer-api.open-meteo.com` — it is the
+   same API, a different host plus a key.
+2. **Model Reporting Rules for Digital Platforms** — the Business page says
+   *Missing Info*. OECD/DAC7 seller reporting, and unfilled it can hold your
    payouts. Click **Add Info**.
-4. **App Store Small Business Program** — not enrolled, so Apple takes **30%**
-   instead of 15%. Free, you qualify comfortably, and the commission maths in
-   the API assumes 15%. Catch: approval starts on the **1st of the following
-   month**, so enrolling today fixes December, not November. November's iOS
-   volume will be tiny; enrol now and treat the gap as noise.
-
-Then **Submit for Review**.
+3. **App Store Small Business Program** — not enrolled, so Apple takes **30%**
+   instead of 15%, and the commission maths in the API assumes 15%. Free, you
+   qualify. Approval starts on the **1st of the following month**, so enrolling
+   now fixes December.
 
 ### 2 · The Android keystore password — unblocks all Play revenue
 
