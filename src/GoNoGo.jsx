@@ -57,23 +57,23 @@ const SKIPPER = ["Novice", "Confident", "Experienced"];
 const ACTIVITY = ["Pottering the bay", "Tubing / watersports", "Fishing offshore"];
 const CREW    = ["Just me", "Adults", "Kids aboard"];
 
+const API_BASE = "https://api.gonogoboatapp.com";
+
 // ── Live data fetcher ─────────────────────────────────────────────────────────
 async function fetchLiveData(lat, lon) {
   const today = new Date().toISOString().slice(0, 10);
   const nowHour = Math.min(20, Math.max(6, new Date().getHours()));
 
+  // Both forecasts come through our own API rather than straight from
+  // Open-Meteo. Their paid plan - which selling Premium obliges us to be on,
+  // since their free tier is licensed for non-commercial use only - needs an
+  // API key, and a key in the app bundle is a key anyone can read out of an
+  // APK and spend. So the key stays on the server and the server asks for us.
+  // The parameters moved there with it; this just asks for a place.
+  const q = `?latitude=${lat}&longitude=${lon}`;
   const [wRes, mRes] = await Promise.all([
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,uv_index` +
-      `&daily=sunrise,sunset,temperature_2m_max,precipitation_probability_max,uv_index_max` +
-      `&wind_speed_unit=kn&timezone=auto&forecast_days=10`
-    ),
-    fetch(
-      `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}` +
-      `&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature` +
-      `&timezone=auto&forecast_days=7`
-    ),
+    fetch(`${API_BASE}/forecast${q}`),
+    fetch(`${API_BASE}/marine${q}`),
   ]);
 
   if (!wRes.ok || !mRes.ok) throw new Error("forecast unavailable");
@@ -772,7 +772,6 @@ const STORAGE_KEYS = {
 // app/android/app/build.gradle; bump both on every release. The latest/minimum codes and the
 // message are edited in the admin ("App version"), and take effect when the release is live on Play.
 const APP_VERSION_CODE = 6;
-const API_BASE = "https://api.gonogoboatapp.com";
 
 function getStoredJson(key, fallback) {
   try {
@@ -2370,7 +2369,7 @@ export default function GoNoGo() {
                 {title:"2. Disclaimer of liability",body:"To the fullest extent permitted by applicable law, GO / NO-GO and its developer(s) accept no liability whatsoever for:\n\n(a) any injury, death, loss, or damage arising from decisions made using this application;\n(b) inaccurate, delayed, or missing forecast data;\n(c) failure or unavailability of the application or any connected data source;\n(d) conditions that differ materially from those forecast.\n\nYou use this application entirely at your own risk.",warn:true},
                 {title:"3. Data sources & third-party providers",body:"Forecast data is obtained from independent third-party providers including Open-Meteo (open-meteo.com) and Copernicus Marine Service. GO / NO-GO has no control over their accuracy or availability. All data is provided \"as received\" without modification."},
                 {title:"4. No warranty",body:"This application is provided \"as is\" without warranty of any kind. Marine forecasts are inherently probabilistic. Conditions can and do change faster than any model can predict."},
-                {title:"5. Privacy",body:"To use GO / NO-GO you create a free account: we store your name, email address, a securely hashed password and the terms you accepted. If you earn commission, bank details are stored encrypted. Your boat profile stays on your device. Your location is sent to our forecast provider, Open-Meteo, to fetch the forecast for where you are; it is used on your phone to measure your distance from your marina, and we never store your location history. Premium is bought through the App Store or Google Play, who take the payment — we never see your card details. No advertising and no data sales. Full details are in the Privacy Policy linked above."},
+                {title:"5. Privacy",body:"To use GO / NO-GO you create a free account: we store your name, email address, a securely hashed password and the terms you accepted. If you earn commission, bank details are stored encrypted. Your boat profile stays on your device. To fetch the forecast where you are, your location is sent to our server, which rounds it to roughly a kilometre before asking our forecast provider, Open-Meteo — so neither we nor they are given your exact position, and we never store your location history. Your precise position stays on your phone, where it is used to measure how far you are from your marina. Premium is bought through the App Store or Google Play, who take the payment — we never see your card details. No advertising and no data sales. Full details are in the Privacy Policy linked above."},
                 {title:"6. Terms of Use",body:"By using the app you accepted our Terms of Use, which include the weather-guidance disclaimer, your responsibilities as skipper, subscriptions and limits on our liability. They are governed by the laws of the Republic of Cyprus and, where applicable, European Union law including GDPR. The full text is linked above."},
               ].map(s=>(
                 <div key={s.title} style={{marginBottom:22}}>
