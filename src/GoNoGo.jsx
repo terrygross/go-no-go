@@ -1845,6 +1845,18 @@ export default function GoNoGo() {
                   Premium shows the full 10-day planner and finds your best window for your boat. Tap to see what Premium includes.
                 </button>
               )}
+
+              {/* Open-Meteo publish their forecasts under CC BY 4.0, which asks
+                  for a link wherever the data is shown - not a mention buried in
+                  the legal screen. This is that link. The wave data comes from
+                  Copernicus Marine Service under its own terms, so it is named
+                  separately rather than folded into the same credit. */}
+              <div style={{padding:"18px 20px 2px",fontSize:10,lineHeight:1.5,color:C.slate,opacity:0.75}}>
+                Weather data by{" "}
+                <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer"
+                  style={{color:C.slate}}>Open-Meteo.com</a>
+                {" · "}Wave data from Copernicus Marine Service
+              </div>
             </div>
           )}
 
